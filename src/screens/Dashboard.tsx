@@ -1,10 +1,11 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Platform,
   SafeAreaView,
@@ -17,11 +18,13 @@ import {
   View,
 } from "react-native";
 
+import * as FileSystem from "expo-file-system";
 import { useSelector } from "react-redux";
 import {
   GENERATEQRCODE_API,
   GET_NEXT_REF_NUMBER,
   GET_PROPERTY_INFO_WITH_MASTER,
+  SAVE_SURVEY_FORM_DATA,
 } from "../api/apiPath";
 import http from "../api/server";
 import QrScanner from "../components/common/QrScanner";
@@ -29,6 +32,8 @@ import MiniCapture from "./MiniCapture";
 
 const Dashboard = () => {
   const route = useRoute<any>();
+  const navigation = useNavigation();
+
   const { propertyMasterId } = route.params;
   const userObj = useSelector((state: any) => state.user.userObj);
   const [isGlazing, setIsGlazing] = useState<boolean>(false);
@@ -38,26 +43,27 @@ const Dashboard = () => {
   // const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
   const [showScanQRCode, setShowScanQRCode] = useState(false);
   const [loadingQR, setLoadingQR] = useState(false);
-
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
   // const [actionImages, setActionImages] = useState<{
   //   [key: string]: { url: string; name: string }[];
   // }>({});
-
+  const [photos, setPhotos] = useState<{ uri: string }[]>([]);
+  const [physicalFields, setPhysicalFields] = useState({
+    doorWidth: "",
+    doorHeight: "",
+    doorMaterial: "",
+    // add all your required fields
+  });
+  const [selectedItems, setSelectedItems] = useState({
+    fireResistance: "",
+    smokeSealType: "",
+    doorType: "",
+    // whatever you're collecting from dropdowns
+  });
   const [actionImages, setActionImages] = useState<Record<string, string[]>>(
     {}
   );
-
-  const [complianceCheck, setComplianceCheck] = useState({
-    intumescentStrips: true, // default Yes
-    coldSmokeSeals: true, // default Yes if shown
-    selfClosingDevice: true,
-    fireLockedSign: true,
-    fireShutSign: true,
-    holdOpenDevice: true,
-    visibleCertification: true,
-    doorGlazing: true,
-    pyroGlazing: true,
-  });
 
   const [basicInfo, setBasicInfo] = useState({
     buildingName: "",
@@ -84,6 +90,7 @@ const Dashboard = () => {
     frameDepth: string;
     doorSize: string;
     fullDoorsetSize: string;
+    compliance: string;
   };
 
   const [formData, setFormData] = useState<FormData>({
@@ -102,6 +109,7 @@ const Dashboard = () => {
     frameDepth: "",
     doorSize: "",
     fullDoorsetSize: "",
+    compliance: "",
   });
   type FormDataKey = keyof FormData;
 
@@ -161,13 +169,8 @@ const Dashboard = () => {
   useEffect(() => {
     if (userObj && propertyMasterId) {
       fetchInitialData();
+      // fetchPropertyData();
     }
-    setDoorOptions([
-      { doorTypeId: "1", doorTypeName: "Fire Door" },
-      { doorTypeId: "2", doorTypeName: "Steel Door" },
-      { doorTypeId: "3", doorTypeName: "Wooden Door" },
-      { doorTypeId: "4", doorTypeName: "Other" },
-    ]);
   }, [userObj, propertyMasterId]);
 
   const fetchInitialData = async () => {
@@ -179,6 +182,17 @@ const Dashboard = () => {
       const refRes = await http.get(
         `${GET_NEXT_REF_NUMBER}${propertyMasterId}/${userObj.userId}`
       );
+
+      // Fetch door types from API (replace with your actual endpoint if needed)
+      const doorTypesRes = await http.get(
+        `${GET_PROPERTY_INFO_WITH_MASTER}${propertyMasterId}`
+      );
+      // If your API returns { doorTypes: [...] }
+      const doorTypes = Array.isArray(doorTypesRes.data)
+        ? doorTypesRes.data
+        : doorTypesRes.data.doorTypes || [];
+
+      setDoorOptions(doorTypes);
 
       const property = propRes.data.propertyMaster;
       const nextRef = refRes.data.nextRefNumber;
@@ -264,6 +278,75 @@ const Dashboard = () => {
     closing: 3,
     threshold: 3,
   };
+  const COMPLIANCE_CHECK = {
+    intumescentStrips: true,
+    intumescentStripsTimeline: "Select",
+    intumescentStripsSeverity: "Select",
+    intumescentStripsComments: "",
+    intumescentStripsCategory: "Select",
+    intumescentStripsDueDate: "",
+    intumescentStripsRemediation: "",
+    intumescentStripsName: "Are there intumescent strips?",
+    intumescentStripsId: "927da4a9-3c0b-46a7-8fb2-00af566a41e6",
+    coldSmokeSeals: true,
+    coldSmokeSealsTimeline: "Select",
+    coldSmokeSealsSeverity: "Select",
+    coldSmokeSealsComments: "",
+    coldSmokeSealsCategory: "Select",
+    coldSmokeSealsDueDate: "",
+    coldSmokeSealsRemediation: "",
+    coldSmokeSealsName: "Are there cold smoke seals?",
+    coldSmokeSealsId: "2d46bbc6-3a52-48ee-ad7d-80c3f3cdf352",
+    selfClosingDevice: true,
+    selfClosingDeviceTimeline: "Select",
+    selfClosingDeviceSeverity: "Select",
+    selfClosingDeviceComments: "",
+    selfClosingDeviceCategory: "Select",
+    selfClosingDeviceDueDate: "",
+    selfClosingDeviceRemediation: "",
+    selfClosingDeviceName: "Self closing device?",
+    selfClosingDeviceId: "145baf7e-bcc6-4c8f-b925-070e751ba2d6",
+    fireLockedSign: true,
+    fireLockedSignTimeline: "Select",
+    fireLockedSignSeverity: "Select",
+    fireLockedSignComments: "",
+    fireLockedSignCategory: "Select",
+    fireLockedSignDueDate: "",
+    fireLockedSignRemediation: "",
+    fireLockedSignName: "Fire door Keep Locked sign?",
+    fireLockedSignId: "942c7963-7d98-49db-a13e-63ee7b4fcfd1",
+    fireShutSign: true,
+    fireShutSignTimeline: "Select",
+    fireShutSignSeverity: "Select",
+    fireShutSignComments: "",
+    fireShutSignCategory: "Select",
+    fireShutSignDueDate: "",
+    fireShutSignRemediation: "",
+    fireShutSignName: "Fire door Keep Shut sign?",
+    fireShutSignId: "b7157137-2bfc-423d-b236-6620c527519b",
+    holdOpenDevice: true,
+    holdOpenDeviceName: "Is there a hold open device?",
+    holdOpenDeviceId: "a106ba4e-ef40-4510-851e-09d1315becc5",
+    visibleCertification: true,
+    visibleCertificationName: "Is certification visible on fire door?",
+    visibleCertificationId: "99ab902f-794a-491b-a6e3-26c8a57f9527",
+    doorGlazing: true,
+    doorGlazingName: "Does the door contain glazing?",
+    doorGlazingId: "1b2886cc-a1a3-4573-a5be-7df68c0db109",
+    pyroGlazing: true,
+    pyroGlazingTimeline: "Select",
+    pyroGlazingSeverity: "Select",
+    pyroGlazingComments: "",
+    pyroGlazingCategory: "Select",
+    pyroGlazingDueDate: "",
+    pyroGlazingRemediation: "",
+    pyroGlazingName: "Is glazing pyro glazing?",
+    pyroGlazingId: "c9873267-e600-4c99-bf08-088dee277909",
+  };
+  const [complianceCheck, setComplianceCheck] =
+    useState<Record<string, any>>(COMPLIANCE_CHECK);
+
+  // const [complianceCheck, setComplianceCheck] = useState<ComplianceCheck>(COMPLIANCE_CHECK);
 
   const handleFireResistanceChange = (value: string) => {
     setFormData((prev) => ({
@@ -383,6 +466,30 @@ const Dashboard = () => {
       : null;
   };
 
+  // ...existing code...
+  const getSeverityDate = (severityValue: string) => {
+    switch (severityValue) {
+      case "1":
+        return new Date().toISOString().split("T")[0];
+      case "2":
+        return new Date(new Date().setDate(new Date().getDate() + 30))
+          .toISOString()
+          .split("T")[0];
+      case "3":
+        return new Date(new Date().setDate(new Date().getDate() + 90))
+          .toISOString()
+          .split("T")[0];
+      case "4":
+        return new Date(new Date().setDate(new Date().getDate() + 180))
+          .toISOString()
+          .split("T")[0];
+      default:
+        return "";
+    }
+  };
+  // ...existing code...
+
+  // ...existing code...
   const handleActionFieldsChange = (
     e: any,
     field: string,
@@ -390,99 +497,143 @@ const Dashboard = () => {
   ) => {
     resetIndividualField(e.target.name);
     const name = `${field}${e.target.name}`;
-    const value =
+    let value =
       e.target.name === "Comments"
         ? removeSpecialCharacters(e.target.value)
         : e.target.value;
 
+    // Handle Severity: set DueDate automatically
+    if (e.target.name === "Severity") {
+      const dueDateKey = `${field}DueDate`;
+      const dueDate = getSeverityDate(value);
+
+      if (section === "PHYSICAL") {
+        setFormData((prev) => ({
+          ...prev,
+          [name]: value,
+          [dueDateKey]: dueDate,
+        }));
+      } else {
+        setComplianceCheck((prev) => ({
+          ...prev,
+          [name]: value,
+          [dueDateKey]: dueDate,
+        }));
+      }
+      return;
+    }
+
+    // Handle Category: set Remediation if value is "5"
+    if (e.target.name === "Category") {
+      const remediationKey = `${field}Remediation`;
+      const remediationText =
+        value === "5" ? "Remediation - Fire Door Replacement required" : "";
+
+      if (section === "PHYSICAL") {
+        setFormData((prev) => ({
+          ...prev,
+          [name]: value,
+          [remediationKey]: remediationText,
+        }));
+      } else {
+        setComplianceCheck((prev) => ({
+          ...prev,
+          [name]: value,
+          [remediationKey]: remediationText,
+        }));
+      }
+      return;
+    }
+
+    // Default
     if (section === "PHYSICAL") {
-      setFormData({
-        ...formData,
+      setFormData((prev) => ({
+        ...prev,
         [name]: value,
-      });
+      }));
     } else {
-      setComplianceCheck({
-        ...complianceCheck,
+      setComplianceCheck((prev) => ({
+        ...prev,
         [name]: value,
-      });
+      }));
     }
   };
+  // ...existing code...
 
-//   const getSeverityDate = (sev: React.ChangeEvent<HTMLInputElement>): string => {
-//   switch (sev.target.value) {
-//     case "1":
-//       return new Date().toISOString().split("T")[0];
-//     case "2":
-//       return new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split("T")[0];
-//     case "3":
-//       return new Date(new Date().setDate(new Date().getDate() + 90)).toISOString().split("T")[0];
-//     case "4":
-//       return new Date(new Date().setDate(new Date().getDate() + 180)).toISOString().split("T")[0];
-//     default:
-//       return new Date().toISOString().split("T")[0];
-//   }
-// };
+  //   const getSeverityDate = (sev: React.ChangeEvent<HTMLInputElement>): string => {
+  //   switch (sev.target.value) {
+  //     case "1":
+  //       return new Date().toISOString().split("T")[0];
+  //     case "2":
+  //       return new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split("T")[0];
+  //     case "3":
+  //       return new Date(new Date().setDate(new Date().getDate() + 90)).toISOString().split("T")[0];
+  //     case "4":
+  //       return new Date(new Date().setDate(new Date().getDate() + 180)).toISOString().split("T")[0];
+  //     default:
+  //       return new Date().toISOString().split("T")[0];
+  //   }
+  // };
 
-// const handleActionFieldsChange = (
-//   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-//   field: string,
-//   section: "PHYSICAL" | "COMPLIANCE"
-// ) => {
-//   resetIndividualField(e.target.name);
+  // const handleActionFieldsChange = (
+  //   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  //   field: string,
+  //   section: "PHYSICAL" | "COMPLIANCE"
+  // ) => {
+  //   resetIndividualField(e.target.name);
 
-//   const baseName = e.target.name;
-//   const name = `${baseName}${field}`;
-//   let value: string = e.target.value;
-//   let severityDueDate = "";
+  //   const baseName = e.target.name;
+  //   const name = `${baseName}${field}`;
+  //   let value: string = e.target.value;
+  //   let severityDueDate = "";
 
-//   if (field === "Comments") {
-//     value = removeSpecialCharacters(value);
-//   }
+  //   if (field === "Comments") {
+  //     value = removeSpecialCharacters(value);
+  //   }
 
-//   if (field === "Severity") {
-//     severityDueDate = getSeverityDate(e);
-//   }
+  //   if (field === "Severity") {
+  //     severityDueDate = getSeverityDate(e);
+  //   }
 
-//   if (field === "Category") {
-//     const isReplacement = value === "5";
-//     const remediationText = isReplacement
-//       ? "Remediation - Fire Door Replacement required"
-//       : "";
+  //   if (field === "Category") {
+  //     const isReplacement = value === "5";
+  //     const remediationText = isReplacement
+  //       ? "Remediation - Fire Door Replacement required"
+  //       : "";
 
-//     if (section === "PHYSICAL") {
-//       setFormData((prev) => ({
-//         ...prev,
-//         [name]: value,
-//         [`${baseName}Remediation`]: remediationText,
-//       }));
-//     } else {
-//       setComplianceCheck((prev) => ({
-//         ...prev,
-//         [name]: value,
-//         [`${baseName}Remediation`]: remediationText,
-//       }));
-//     }
-//   } else {
-//     if (section === "PHYSICAL") {
-//       setFormData((prev) => ({
-//         ...prev,
-//         [name]: value,
-//         ...(field === "Severity" && {
-//           [`${baseName}DueDate`]: severityDueDate,
-//         }),
-//       }));
-//     } else {
-//       setComplianceCheck((prev) => ({
-//         ...prev,
-//         [name]: value,
-//         ...(field === "Severity" && {
-//           [`${baseName}DueDate`]: severityDueDate,
-//         }),
-//       }));
-//     }
-//   }
-// };
-
+  //     if (section === "PHYSICAL") {
+  //       setFormData((prev) => ({
+  //         ...prev,
+  //         [name]: value,
+  //         [`${baseName}Remediation`]: remediationText,
+  //       }));
+  //     } else {
+  //       setComplianceCheck((prev) => ({
+  //         ...prev,
+  //         [name]: value,
+  //         [`${baseName}Remediation`]: remediationText,
+  //       }));
+  //     }
+  //   } else {
+  //     if (section === "PHYSICAL") {
+  //       setFormData((prev) => ({
+  //         ...prev,
+  //         [name]: value,
+  //         ...(field === "Severity" && {
+  //           [`${baseName}DueDate`]: severityDueDate,
+  //         }),
+  //       }));
+  //     } else {
+  //       setComplianceCheck((prev) => ({
+  //         ...prev,
+  //         [name]: value,
+  //         ...(field === "Severity" && {
+  //           [`${baseName}DueDate`]: severityDueDate,
+  //         }),
+  //       }));
+  //     }
+  //   }
+  // };
 
   const handleDeleteImages = (index: number, field: string) => {
     const imgArr = actionImages[field];
@@ -525,6 +676,530 @@ const Dashboard = () => {
     return <ActivityIndicator size="large" style={{ marginTop: 50 }} />;
   }
 
+  // const handleSubmit = async (status: string = "Compliant") => {
+  //   setSubmitting(true);
+  //   try {
+  //     const nowIso: string = new Date().toISOString();
+
+  //     // 1. Property Info
+  //     const propertyInfo = {
+  //       propertyMasterId: propertyMasterId,
+  //       inspectionStartedOn: nowIso,
+  //       inspectedBy: userObj?.userName || "",
+  //       inspectedById: userObj?.userId || 0,
+  //       inspectionApprovedDate: nowIso,
+  //       lastInspectionDate: nowIso,
+  //       inspectionApprovedBy: "",
+  //       lastInspectedBy: userObj?.userName || "",
+  //       status: status,
+  //       inspectionUpdatedBy: userObj?.userName || "",
+  //       inspectionUpdatedOn: nowIso,
+  //       nextInspectionDueDate: nowIso,
+  //     };
+  //     console.log("1️⃣ Property Info:", propertyInfo);
+
+  //     // 2. Floor Info
+  //     const inspectedPropertyFloorsInfo = {
+  //       floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
+  //       floorPlanImage: basicInfo.floorPlan || "",
+  //       createdBy: userObj?.userName || "",
+  //       updatedBy: userObj?.userName || "",
+  //     };
+  //     console.log("2️⃣ Floor Info:", inspectedPropertyFloorsInfo);
+
+  //     // 3. Door DTO
+  //     const doorPhoto = {
+  //       additionalProp1: formData.doorPhoto || "",
+  //       additionalProp2: "",
+  //       additionalProp3: "",
+  //     };
+
+  //     const inspectedDoorDto = {
+  //       doorTypeId: formData.doorType || "",
+  //       doorRefNumber: formData.doorNumber || "",
+  //       doorNumber: formData.doorNumber || "",
+  //       floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
+  //       floorImage: basicInfo.floorPlan || "",
+  //       inspectedBy: userObj?.userName || "",
+  //       doorInspectionDate: nowIso,
+  //       status: status,
+  //       flatName: "",
+  //       doorTypeName: formData.doorTypeName || "",
+  //       propertyName: basicInfo.buildingName || "",
+  //       otherDoorTypeName: formData.doorOther || "",
+  //       doorLocation: basicInfo.location || "",
+  //       doorPhoto: doorPhoto,
+  //     };
+  //     console.log("3️⃣ Door Info:", inspectedDoorDto);
+
+  //     // 4. Compliance Checks
+  //     const complianceKeys = [
+  //       "intumescentStrips",
+  //       "coldSmokeSeals",
+  //       "selfClosingDevice",
+  //       "fireLockedSign",
+  //       "fireShutSign",
+  //       "holdOpenDevice",
+  //       "visibleCertification",
+  //       "doorGlazing",
+  //       "pyroGlazing",
+  //     ];
+
+  //     const complianceChecks = complianceKeys.map((key) => ({
+  //       complianceCheckMasterID:
+  //         (complianceCheck as any)[`${key}Id`] || "f54b5067-b68d-43b7-83cd-239dcedc5976",
+  //       isCompliant: complianceCheck[key as keyof typeof complianceCheck] ?? true,
+  //       actionItem: {
+  //         timeline: (complianceCheck as any)[`${key}Timeline`] || "",
+  //         severity: (complianceCheck as any)[`${key}Severity`] || "",
+  //         category: (complianceCheck as any)[`${key}Category`] || "",
+  //         remediation: (complianceCheck as any)[`${key}Remediation`] || "",
+  //         dueDate: (complianceCheck as any)[`${key}DueDate`] || nowIso,
+  //         comment: (complianceCheck as any)[`${key}Comments`] || "",
+  //         photos: actionImages[key] || [],
+  //       },
+  //     }));
+  //     console.log("4️⃣ Compliance Checks:", complianceChecks);
+
+  //     // 5. Physical Measurements
+  //     const physicalFields = [
+  //       "head",
+  //       "hinge",
+  //       "closing",
+  //       "threshold",
+  //       "doorThickness",
+  //       "frameDepth",
+  //       "doorSize",
+  //       "fullDoorsetSize",
+  //     ];
+
+  //     const physicalMeasurement: Record<string, any> = {
+  //       fireRatingID: formData.fireResistance || "",
+  //       hingePosition: formData.hingeLocation || "",
+  //       comments: "",
+  //     };
+
+  //     physicalFields.forEach((key) => {
+  //       physicalMeasurement[key] = {
+  //         value: Number(formData[key as keyof FormData] || 0),
+  //         timeline: (formData as any)[`${key}Timeline`] || "",
+  //         severity: (formData as any)[`${key}Severity`] || "",
+  //         category: (formData as any)[`${key}Category`] || "",
+  //         remediation: (formData as any)[`${key}Remediation`] || "",
+  //         dueDate: (formData as any)[`${key}DueDate`] || nowIso,
+  //         comment: (formData as any)[`${key}Comments`] || "",
+  //         photos: actionImages[key] || [],
+  //       };
+  //     });
+  //     console.log("5️⃣ Physical Measurement:", physicalMeasurement);
+
+  //     // 6. Additional Info
+  //     const additionalInfos = [
+  //       { imagePath: basicInfo.floorPlan ? [basicInfo.floorPlan] : [] },
+  //     ];
+  //     console.log("6️⃣ Additional Info:", additionalInfos);
+
+  //     // 7. Final Payload
+  //     const payload = {
+  //       propertyInfo,
+  //       inspectedPropertyFloorsInfo,
+  //       inspectedDoorDto,
+  //       complianceChecks,
+  //       additionalInfos,
+  //       physicalMeasurement,
+  //     };
+  //     console.log("📦 Final Payload:", payload);
+
+  //     // 8. Submit
+  //     const response = await http.post(SAVE_SURVEY_FORM_DATA, payload );
+  //     if (response.status === 200 || response.status === 201) {
+  //       alert(`✅ Door inspection saved: ${formData.doorNumber}`);
+  //     } else {
+  //       alert("❌ Submission failed. Try again.");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error during submission:", error);
+  //     alert("❌ Submission failed.");
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // };
+
+  // import { Alert } from "react-native";
+  // import http from "../api/server"; // Adjust path if needed
+
+  const manualComplianceIds: Record<string, string> = {
+    complianceCheckMasterID: "f54b5067-b68d-43b7-83cd-239dcedc5976",
+  };
+
+  const getBase64FromUri = async (uri: string): Promise<string> => {
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return `data:image/jpeg;base64,${base64}`;
+  };
+
+  // const handleSubmit = async () => {
+  //   setSubmitting(true);
+  //   try {
+  //     const nowIso = new Date().toISOString();
+
+  //     // 1. Property Info
+  //     const PropertyInfo = {
+  //       propertyMasterId: propertyMasterId,
+  //       inspectionStartedOn: nowIso,
+  //       inspectedBy: userObj?.userName || "",
+  //       inspectedById: userObj?.userId || 0,
+  //       inspectionApprovedDate: nowIso,
+  //       lastInspectionDate: nowIso,
+  //       inspectionApprovedBy: "",
+  //       lastInspectedBy: userObj?.userName || "",
+  //       status: "Compliant",
+  //       inspectionUpdatedBy: userObj?.userName || "",
+  //       inspectionUpdatedOn: nowIso,
+  //       nextInspectionDueDate: nowIso,
+  //     };
+
+  //     // 2. Floor Info
+  //     const InspectedPropertyFloorsInfo = {
+  //       floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
+  //       floorPlanImage: basicInfo.floorPlan || "",
+  //       createdBy: userObj?.userName || "",
+  //       updatedBy: userObj?.userName || "",
+  //     };
+
+  //     // 3. Door DTO
+  //     const doorPhoto = {
+  //       additionalProp1: formData.doorPhoto || "",
+  //       additionalProp2: "",
+  //       additionalProp3: "",
+  //     };
+
+  //     const InspectedDoorDto = {
+  //       doorTypeId: formData.doorType || "",
+  //       doorRefNumber: formData.doorNumber || "",
+  //       doorNumber: formData.doorNumber || "",
+  //       floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
+  //       floorImage: basicInfo.floorPlan || "",
+  //       inspectedBy: userObj?.userName || "",
+  //       doorInspectionDate: nowIso,
+  //       status: "Compliant",
+  //       flatName: "",
+  //       doorTypeName: formData.doorTypeName || "",
+  //       propertyName: basicInfo.buildingName || "",
+  //       otherDoorTypeName: formData.doorOther || "",
+  //       doorLocation: basicInfo.location || "",
+  //       doorPhoto: doorPhoto,
+  //     };
+
+  //     // 4. Compliance Checks
+  //     const complianceKeys = [
+  //       "intumescentStrips",
+  //       "coldSmokeSeals",
+  //       "selfClosingDevice",
+  //       "fireLockedSign",
+  //       "fireShutSign",
+  //       "holdOpenDevice",
+  //       "visibleCertification",
+  //       "doorGlazing",
+  //       "pyroGlazing",
+  //     ];
+
+  //     const complianceChecks = complianceKeys.map((key) => {
+  //       const id = complianceCheck[`${key}Id`] || "";
+  //       const isCompliant = complianceCheck[key] ?? true;
+
+  //       const hasActionFields =
+  //         complianceCheck[`${key}Severity`] !== "Select" ||
+  //         complianceCheck[`${key}Category`] !== "Select" ||
+  //         complianceCheck[`${key}Timeline`] !== "Select" ||
+  //         complianceCheck[`${key}Comments`] !== "" ||
+  //         complianceCheck[`${key}Remediation`] !== "";
+
+  //       const dueDateVal = complianceCheck[`${key}DueDate`] || null;
+
+  //       return {
+  //         complianceCheckMasterID: id,
+  //         isCompliant,
+  //         actionItem: {
+  //           timeline: isCompliant ? "" : complianceCheck[`${key}Timeline`] || "",
+  //           severity: isCompliant ? "" : complianceCheck[`${key}Severity`] || "",
+  //           comment: isCompliant ? "" : complianceCheck[`${key}Comments`] || "",
+  //           category: isCompliant ? "" : complianceCheck[`${key}Category`] || "",
+  //           dueDate: isCompliant ? null : dueDateVal || null,
+  //           remediation: isCompliant
+  //             ? ""
+  //             : complianceCheck[`${key}Remediation`] || "",
+  //           photos: isCompliant ? [] : actionImages[key] || [],
+  //         },
+  //       };
+  //     });
+
+  //     // 5. Physical Measurements
+  //     const physicalFields = [
+  //       "head",
+  //       "hinge",
+  //       "closing",
+  //       "threshold",
+  //       "doorThickness",
+  //       "frameDepth",
+  //       "doorSize",
+  //       "fullDoorsetSize",
+  //     ];
+
+  //     const PhysicalMeasurement: Record<string, any> = {
+  //       fireRatingID: formData.fireResistance || "",
+  //       hingePosition: formData.hingeLocation || "",
+  //       comments: "",
+  //     };
+
+  //     physicalFields.forEach((key) => {
+  //       PhysicalMeasurement[key] = {
+  //         value: Number(formData[key as keyof typeof formData] || 0),
+  //         timeline: (formData as any)[`${key}Timeline`] || "",
+  //         severity: (formData as any)[`${key}Severity`] || "",
+  //         category: (formData as any)[`${key}Category`] || "",
+  //         remediation: (formData as any)[`${key}Remediation`] || "",
+  //         dueDate: (formData as any)[`${key}DueDate`] || null,
+  //         comment: (formData as any)[`${key}Comments`] || "",
+  //         photos: actionImages[key] || [],
+  //       };
+  //     });
+
+  //     // 6. Additional Info
+  //     const AdditionalInfos = [
+  //       { imagePath: basicInfo.floorPlan ? [basicInfo.floorPlan] : [] },
+  //     ];
+
+  //     // 7. Final Payload
+  //     const payload = {
+  //       PropertyInfo,
+  //       InspectedPropertyFloorsInfo,
+  //       InspectedDoorDto,
+  //       complianceChecks,
+  //       AdditionalInfos,
+  //       PhysicalMeasurement,
+  //     };
+
+  //     console.log("🔍 Final Payload:", JSON.stringify(payload, null, 2));
+
+  //     // 8. Submit (wrap in { dto: payload } if backend expects)
+  //     const response = await http.post(SAVE_SURVEY_FORM_DATA, payload);
+
+  //     if (response.status === 200 || response.status === 201) {
+  //       Alert.alert("✅ Success", `Inspection saved for door: ${formData.doorNumber}`);
+  //     } else {
+  //       Alert.alert("❌ Error", "Submission failed. Try again.");
+  //     }
+  //   } catch (error: any) {
+  //     if (error.response) {
+  //       const backendData = error.response.data;
+  //       console.log("❌ Server responded:", backendData);
+  //       if (backendData?.errors) {
+  //         const firstKey = Object.keys(backendData.errors)[0];
+  //         const firstMsg = backendData.errors[firstKey][0];
+  //         Alert.alert("Validation Error", `${firstKey}: ${firstMsg}`);
+  //       } else {
+  //         Alert.alert("Server Error", backendData.message || "Unknown error");
+  //       }
+  //     } else if (error.request) {
+  //       Alert.alert("Network Error", "No response from server.");
+  //     } else {
+  //       Alert.alert("Error", error.message);
+  //     }
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // };
+
+  // ✅ Dynamic handleSubmit function
+  // ✅ Dynamic handleSubmit function
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const nowIso = new Date().toISOString();
+
+      // 1. Property Info
+      const PropertyInfo = {
+        propertyMasterId: propertyMasterId,
+        inspectionStartedOn: nowIso,
+        inspectedBy: userObj?.userName || "",
+        inspectedById: userObj?.userId || 0,
+        inspectionApprovedDate: nowIso,
+        lastInspectionDate: nowIso,
+        inspectionApprovedBy: "",
+        lastInspectedBy: userObj?.userName || "",
+        status: "Compliant",
+        inspectionUpdatedBy: userObj?.userName || "",
+        inspectionUpdatedOn: nowIso,
+        nextInspectionDueDate: nowIso,
+      };
+
+      // 2. Floor Info
+      const InspectedPropertyFloorsInfo = {
+        floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
+        floorPlanImage: basicInfo.floorPlan || "",
+        createdBy: userObj?.userName || "",
+        updatedBy: userObj?.userName || "",
+      };
+
+      // 3. Door DTO
+      const doorPhoto = {
+        additionalProp1: formData.doorPhoto || "",
+        additionalProp2: "",
+        additionalProp3: "",
+      };
+
+      const InspectedDoorDto = {
+        doorTypeId: formData.doorType || "",
+        doorRefNumber: formData.doorNumber || "",
+        doorNumber: formData.doorNumber || "",
+        floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
+        floorImage: basicInfo.floorPlan || "",
+        inspectedBy: userObj?.userName || "",
+        doorInspectionDate: nowIso,
+        status: "Compliant",
+        flatName: "",
+        doorTypeName: formData.doorTypeName || "",
+        propertyName: basicInfo.buildingName || "",
+        otherDoorTypeName: formData.doorOther || "",
+        doorLocation: basicInfo.location || "",
+        doorPhoto,
+      };
+
+      // 4. Compliance Checks
+      const complianceKeys = [
+        "intumescentStrips",
+        "coldSmokeSeals",
+        "selfClosingDevice",
+        "fireLockedSign",
+        "fireShutSign",
+        "holdOpenDevice",
+        "visibleCertification",
+        "doorGlazing",
+        "pyroGlazing",
+      ];
+
+      const complianceChecks = complianceKeys.map((key) => {
+        const id = complianceCheck[`${key}Id`] || "";
+        const isCompliant = complianceCheck[key] ?? true;
+        const dueDateVal = complianceCheck[`${key}DueDate`] || nowIso;
+
+        return {
+          complianceCheckMasterID: id,
+          isCompliant,
+          actionItem: {
+            timeline: isCompliant
+              ? ""
+              : complianceCheck[`${key}Timeline`] || "",
+            severity: isCompliant
+              ? ""
+              : complianceCheck[`${key}Severity`] || "",
+            comment: isCompliant ? "" : complianceCheck[`${key}Comments`] || "",
+            category: isCompliant
+              ? ""
+              : complianceCheck[`${key}Category`] || "",
+            dueDate: isCompliant ? null : dueDateVal,
+            remediation: isCompliant
+              ? ""
+              : complianceCheck[`${key}Remediation`] || "",
+            photos: isCompliant ? [] : actionImages[key] || [],
+          },
+        };
+      });
+
+      // 5. Physical Measurements
+      const physicalFields = [
+        "head",
+        "hinge",
+        "closing",
+        "threshold",
+        "doorThickness",
+        "frameDepth",
+        "doorSize",
+        "fullDoorsetSize",
+      ];
+
+      const PhysicalMeasurement: Record<string, any> = {
+        fireRatingID: formData.fireResistance || "",
+        hingePosition: formData.hingeLocation || "",
+        comments: "",
+      };
+
+      physicalFields.forEach((key: string) => {
+        const timeline =
+          formData[`${key}Timeline` as keyof typeof formData] || "";
+        const severity =
+          formData[`${key}Severity` as keyof typeof formData] || "";
+        const category =
+          formData[`${key}Category` as keyof typeof formData] || "";
+        const remediation =
+          formData[`${key}Remediation` as keyof typeof formData] || "";
+        const dueDate =
+          formData[`${key}DueDate` as keyof typeof formData] || nowIso;
+        const comment =
+          formData[`${key}Comments` as keyof typeof formData] || "";
+
+        PhysicalMeasurement[key] = {
+          value: Number(formData[key as keyof typeof formData] || 0),
+          timeline,
+          severity,
+          category,
+          remediation,
+          dueDate,
+          comment,
+          photos: actionImages[key] || [],
+        };
+      });
+
+      // 6. Additional Info
+      const AdditionalInfos = [
+        { imagePath: basicInfo.floorPlan ? [basicInfo.floorPlan] : [] },
+      ];
+
+      // 7. Final Payload
+      const payload = {
+        PropertyInfo,
+        InspectedPropertyFloorsInfo,
+        InspectedDoorDto,
+        complianceChecks,
+        AdditionalInfos,
+        PhysicalMeasurement,
+      };
+
+      console.log("🔍 Final Payload:", JSON.stringify(payload, null, 2));
+
+      const response = await http.post(SAVE_SURVEY_FORM_DATA, payload);
+      setMessage("Form submitted successfully!");
+
+      if (response.status === 200 || response.status === 201) {
+        Alert.alert("✅ Success", "Inspection form submitted successfully.", [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        Alert.alert("❌ Error", "Submission failed. Try again.");
+      }
+    } catch (error: any) {
+      if (error.response) {
+        const backendData = error.response.data;
+        console.log("❌ Server responded:", backendData);
+        if (backendData?.errors) {
+          const firstKey = Object.keys(backendData.errors)[0];
+          const firstMsg = backendData.errors[firstKey][0];
+          Alert.alert("Validation Error", `${firstKey}: ${firstMsg}`);
+        } else {
+          Alert.alert("Server Error", backendData.message || "Unknown error");
+        }
+      } else if (error.request) {
+        Alert.alert("Network Error", "No response from server.");
+      } else {
+        Alert.alert("Error", error.message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -551,33 +1226,33 @@ const Dashboard = () => {
             value={basicInfo.date}
             editable={false}
           /> */}
-           <Text style={{ marginBottom: 5 }}>Date</Text>
+          <Text style={{ marginBottom: 5 }}>Date</Text>
 
-      <TouchableOpacity onPress={() => setShowPicker(true)}>
-        <TextInput
-          style={{
-            borderWidth: 1,
-            borderColor: "#ccc",
-            borderRadius: 5,
-            padding: 10,
-            height: 45,
-            backgroundColor: "#fff",
-          }}
-          value={formatDate(date)}
-          editable={false}
-          pointerEvents="none"
-        />
-      </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowPicker(true)}>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: "#ccc",
+                borderRadius: 5,
+                padding: 10,
+                height: 45,
+                backgroundColor: "#fff",
+              }}
+              value={formatDate(date)}
+              editable={false}
+              pointerEvents="none"
+            />
+          </TouchableOpacity>
 
-      {showPicker && (
-        <DateTimePicker
-          value={date}
-          mode="date"
-          display={Platform.OS === "ios" ? "spinner" : "default"}
-          onChange={handleDateChange}
-          maximumDate={new Date()}
-        />
-      )}
+          {showPicker && (
+            <DateTimePicker
+              value={date}
+              mode="date"
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              onChange={handleDateChange}
+              maximumDate={new Date()}
+            />
+          )}
 
           <Text style={styles.label}>Location</Text>
           <TextInput
@@ -722,6 +1397,9 @@ const Dashboard = () => {
           </Picker>
         </View>
         {/* Physical Measurements Section */}
+
+        <Text style={styles.label}>Fire Rating and Certification*</Text>
+
         {[
           { key: "head", label: "Head (mm)" },
           { key: "hinge", label: "Hinge (mm)" },
@@ -774,6 +1452,19 @@ const Dashboard = () => {
                     isView={false}
                     savedImages={[]}
                   />
+
+                  {/* Show Due Date if Severity is selected */}
+                  {(formData as any)[`${key}Severity`] &&
+                    (formData as any)[`${key}Severity`] !== "Select" && (
+                      <View style={{ marginTop: 8 }}>
+                        <Text style={styles.label}>Due Date</Text>
+                        <TextInput
+                          style={styles.input}
+                          value={(formData as any)[`${key}DueDate`] || ""}
+                          editable={false}
+                        />
+                      </View>
+                    )}
                 </View>
               )}
             </View>
@@ -866,6 +1557,45 @@ const Dashboard = () => {
           })()}
         </View>
       </ScrollView>
+
+      <TouchableOpacity
+        style={[
+          styles.button,
+          {
+            backgroundColor: "#007bff",
+            marginTop: 30,
+            paddingVertical: 14,
+            borderRadius: 8,
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            elevation: 3,
+          },
+        ]}
+        onPress={handleSubmit}
+      >
+        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
+          {submitting ? "Submitting..." : "Submit"}
+        </Text>
+      </TouchableOpacity>
+
+      {message ? (
+        <View
+          style={{
+            marginTop: 20,
+            backgroundColor: "#d4edda",
+            borderColor: "#c3e6cb",
+            borderWidth: 1,
+            padding: 12,
+            borderRadius: 6,
+          }}
+        >
+          <Text style={{ color: "#155724", fontSize: 14 }}>{message}</Text>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 };

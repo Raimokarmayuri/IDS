@@ -11,8 +11,13 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@expo/vector-icons": "^14.1.0",
+    "@mui/icons-material": "^7.2.0",
+    "@mui/material": "^7.2.0",
     "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-native-community/datetimepicker": "8.4.1",
     "@react-native-picker/picker": "^2.11.1",
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
@@ -25,6 +30,7 @@
     "expo-blur": "~14.1.5",
     "expo-camera": "~16.1.11",
     "expo-constants": "~17.1.7",
+    "expo-file-system": "~18.1.11",
     "expo-font": "~13.3.2",
     "expo-haptics": "~14.1.4",
     "expo-image": "~2.4.0",
@@ -56,8 +62,7 @@
     "react-toastify": "^11.0.5",
     "react-webcam": "^7.2.0",
     "redux": "^5.0.1",
-    "rn-fetch-blob": "^0.12.0",
-    "@react-native-community/datetimepicker": "8.4.1"
+    "rn-fetch-blob": "^0.12.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
