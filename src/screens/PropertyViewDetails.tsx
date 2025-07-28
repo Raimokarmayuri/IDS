@@ -253,7 +253,7 @@ const PropertyDetailsScreen = () => {
                     ? item.comments.slice(0, 20) + "..."
                     : item.comments || "-"}
                 </Text>
-                <Text style={styles.iconCell}>👁️</Text>
+                <Text style={styles.iconCell} onPress={"ViewSurvey" as never}>👁️</Text>
                 <Text style={styles.iconCell}>✏️</Text>
               </View>
             ))}

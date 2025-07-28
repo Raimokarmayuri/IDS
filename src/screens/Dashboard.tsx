@@ -1,3 +1,4 @@
+
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -18,6 +19,7 @@ import {
   View,
 } from "react-native";
 
+import { hostName } from "@/config/config";
 import * as FileSystem from "expo-file-system";
 import { useSelector } from "react-redux";
 import {
@@ -28,6 +30,7 @@ import {
 } from "../api/apiPath";
 import http from "../api/server";
 import QrScanner from "../components/common/QrScanner";
+import Capture from "./Capture";
 import MiniCapture from "./MiniCapture";
 
 const Dashboard = () => {
@@ -45,6 +48,8 @@ const Dashboard = () => {
   const [loadingQR, setLoadingQR] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+  const [highlightDoor, setHighlightDoor] = useState(false);
+
   // const [actionImages, setActionImages] = useState<{
   //   [key: string]: { url: string; name: string }[];
   // }>({});
@@ -65,14 +70,38 @@ const Dashboard = () => {
     {}
   );
 
-  const [basicInfo, setBasicInfo] = useState({
+  // const [basicInfo, setBasicInfo] = useState({
+  //   buildingName: "",
+  //   uniqueRef: "",
+  //   date: new Date().toISOString().split("T")[0],
+  //   location: "",
+  //   floor: "",
+  //   // floorPlan: "",
+  //     floorPlan: string;
+  //     floorPlan: [] as string[], // 👈 change here
+
+  // });
+
+  interface BasicInfo {
+    buildingName: string;
+    uniqueRef: string;
+    date: string;
+    location: string;
+    floor: string;
+    floorPlan: string[], // make sure this matches what you're assigning
+  }
+
+
+  const [basicInfo, setBasicInfo] = useState<BasicInfo>({
     buildingName: "",
     uniqueRef: "",
     date: new Date().toISOString().split("T")[0],
     location: "",
     floor: "",
-    floorPlan: "",
+    floorPlan: [], // should be string, not array or object
   });
+
+
 
   type FormData = {
     doorNumber: string;
@@ -91,11 +120,13 @@ const Dashboard = () => {
     doorSize: string;
     fullDoorsetSize: string;
     compliance: string;
+    doorPhotos: string[],
   };
 
   const [formData, setFormData] = useState<FormData>({
     doorNumber: "",
     doorType: "",
+    doorPhotos: [],
     doorTypeName: "",
     doorOther: "",
     doorPhoto: "",
@@ -143,6 +174,7 @@ const Dashboard = () => {
       setDate(selectedDate);
     }
   };
+  const [floorPlanImages, setFloorPlanImages] = useState<string[]>([]);
 
   const [isColdSeals, setIsColdSeals] = useState(false);
   const [actionmenuFlag, setActionMenuFlag] = useState<{
@@ -254,23 +286,34 @@ const Dashboard = () => {
     }
   };
 
-  const pickImage = async (type: "floorPlan" | "doorPhoto") => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      alert("Permission denied");
-      return;
-    }
+  const pickImage = async (field: string) => {
+  let result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 0.8,
+    base64: true,
+  });
 
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.6 });
-    if (!result.canceled && result.assets[0].uri) {
-      const uri = result.assets[0].uri;
-      if (type === "floorPlan") {
-        setBasicInfo((prev) => ({ ...prev, floorPlan: uri }));
-      } else {
-        setFormData((prev) => ({ ...prev, doorPhoto: uri }));
+  if (!result.canceled && result.assets?.length > 0) {
+    const asset = result.assets[0];
+    const uri = asset.base64
+      ? `data:image/jpeg;base64,${asset.base64}`
+      : asset.uri;
+
+    if (field === "floorPlan") {
+      // Upload the image
+      const uploadedUrl = await uploadImageAPI([uri], "Floor");
+      if (uploadedUrl) {
+        setBasicInfo((prev) => ({
+          ...prev,
+          floorPlan: [...(prev.floorPlan || []), uploadedUrl],
+        }));
       }
     }
-  };
+  }
+};
+
+
+
 
   const BASE_MEASURES: { [key: string]: number } = {
     head: 3,
@@ -558,96 +601,43 @@ const Dashboard = () => {
       }));
     }
   };
-  // ...existing code...
 
-  //   const getSeverityDate = (sev: React.ChangeEvent<HTMLInputElement>): string => {
-  //   switch (sev.target.value) {
-  //     case "1":
-  //       return new Date().toISOString().split("T")[0];
-  //     case "2":
-  //       return new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split("T")[0];
-  //     case "3":
-  //       return new Date(new Date().setDate(new Date().getDate() + 90)).toISOString().split("T")[0];
-  //     case "4":
-  //       return new Date(new Date().setDate(new Date().getDate() + 180)).toISOString().split("T")[0];
-  //     default:
-  //       return new Date().toISOString().split("T")[0];
-  //   }
-  // };
+const handleDeleteImages = (index: number, field: string) => {
+  switch (field) {
+    case "Floor": {
+      const updated = [...basicInfo.floorPlan];
+      updated.splice(index, 1);
+      setBasicInfo((prev) => ({ ...prev, floorPlan: updated }));
+      break;
+    }
 
-  // const handleActionFieldsChange = (
-  //   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-  //   field: string,
-  //   section: "PHYSICAL" | "COMPLIANCE"
-  // ) => {
-  //   resetIndividualField(e.target.name);
+    case "Door": {
+      const updated = [...formData.doorPhotos];
+      updated.splice(index, 1);
+      setFormData((prev) => ({
+        ...prev,
+        doorPhotos: updated,
+        // Optional: clear doorPhoto if it's the one removed
+        doorPhoto: updated[0] || "",
+      }));
+      break;
+    }
 
-  //   const baseName = e.target.name;
-  //   const name = `${baseName}${field}`;
-  //   let value: string = e.target.value;
-  //   let severityDueDate = "";
+    default: {
+      const imgArr = actionImages[field] || [];
+      const updatedImages = imgArr.filter((_, i) => i !== index);
+      setActionImages((prev) => ({
+        ...prev,
+        [field]: updatedImages,
+      }));
+      break;
+    }
+  }
 
-  //   if (field === "Comments") {
-  //     value = removeSpecialCharacters(value);
-  //   }
+  // Optional: delete from blob storage
+  // deleteImageAPI(imageToDelete);
+};
 
-  //   if (field === "Severity") {
-  //     severityDueDate = getSeverityDate(e);
-  //   }
-
-  //   if (field === "Category") {
-  //     const isReplacement = value === "5";
-  //     const remediationText = isReplacement
-  //       ? "Remediation - Fire Door Replacement required"
-  //       : "";
-
-  //     if (section === "PHYSICAL") {
-  //       setFormData((prev) => ({
-  //         ...prev,
-  //         [name]: value,
-  //         [`${baseName}Remediation`]: remediationText,
-  //       }));
-  //     } else {
-  //       setComplianceCheck((prev) => ({
-  //         ...prev,
-  //         [name]: value,
-  //         [`${baseName}Remediation`]: remediationText,
-  //       }));
-  //     }
-  //   } else {
-  //     if (section === "PHYSICAL") {
-  //       setFormData((prev) => ({
-  //         ...prev,
-  //         [name]: value,
-  //         ...(field === "Severity" && {
-  //           [`${baseName}DueDate`]: severityDueDate,
-  //         }),
-  //       }));
-  //     } else {
-  //       setComplianceCheck((prev) => ({
-  //         ...prev,
-  //         [name]: value,
-  //         ...(field === "Severity" && {
-  //           [`${baseName}DueDate`]: severityDueDate,
-  //         }),
-  //       }));
-  //     }
-  //   }
-  // };
-
-  const handleDeleteImages = (index: number, field: string) => {
-    const imgArr = actionImages[field];
-    const imageToDelete = imgArr[index];
-    const updatedImages = imgArr.filter((_, i) => i !== index);
-
-    setActionImages({
-      ...actionImages,
-      [field]: updatedImages,
-    });
-
-    // Optional: call delete API if needed
-    // deleteImageAPI(imageToDelete);
-  };
 
   const [qrCodeImage, setQrCodeImage] = useState<string>("");
   const [showLoader, setShowLoader] = useState(false);
@@ -676,157 +666,6 @@ const Dashboard = () => {
     return <ActivityIndicator size="large" style={{ marginTop: 50 }} />;
   }
 
-  // const handleSubmit = async (status: string = "Compliant") => {
-  //   setSubmitting(true);
-  //   try {
-  //     const nowIso: string = new Date().toISOString();
-
-  //     // 1. Property Info
-  //     const propertyInfo = {
-  //       propertyMasterId: propertyMasterId,
-  //       inspectionStartedOn: nowIso,
-  //       inspectedBy: userObj?.userName || "",
-  //       inspectedById: userObj?.userId || 0,
-  //       inspectionApprovedDate: nowIso,
-  //       lastInspectionDate: nowIso,
-  //       inspectionApprovedBy: "",
-  //       lastInspectedBy: userObj?.userName || "",
-  //       status: status,
-  //       inspectionUpdatedBy: userObj?.userName || "",
-  //       inspectionUpdatedOn: nowIso,
-  //       nextInspectionDueDate: nowIso,
-  //     };
-  //     console.log("1️⃣ Property Info:", propertyInfo);
-
-  //     // 2. Floor Info
-  //     const inspectedPropertyFloorsInfo = {
-  //       floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
-  //       floorPlanImage: basicInfo.floorPlan || "",
-  //       createdBy: userObj?.userName || "",
-  //       updatedBy: userObj?.userName || "",
-  //     };
-  //     console.log("2️⃣ Floor Info:", inspectedPropertyFloorsInfo);
-
-  //     // 3. Door DTO
-  //     const doorPhoto = {
-  //       additionalProp1: formData.doorPhoto || "",
-  //       additionalProp2: "",
-  //       additionalProp3: "",
-  //     };
-
-  //     const inspectedDoorDto = {
-  //       doorTypeId: formData.doorType || "",
-  //       doorRefNumber: formData.doorNumber || "",
-  //       doorNumber: formData.doorNumber || "",
-  //       floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
-  //       floorImage: basicInfo.floorPlan || "",
-  //       inspectedBy: userObj?.userName || "",
-  //       doorInspectionDate: nowIso,
-  //       status: status,
-  //       flatName: "",
-  //       doorTypeName: formData.doorTypeName || "",
-  //       propertyName: basicInfo.buildingName || "",
-  //       otherDoorTypeName: formData.doorOther || "",
-  //       doorLocation: basicInfo.location || "",
-  //       doorPhoto: doorPhoto,
-  //     };
-  //     console.log("3️⃣ Door Info:", inspectedDoorDto);
-
-  //     // 4. Compliance Checks
-  //     const complianceKeys = [
-  //       "intumescentStrips",
-  //       "coldSmokeSeals",
-  //       "selfClosingDevice",
-  //       "fireLockedSign",
-  //       "fireShutSign",
-  //       "holdOpenDevice",
-  //       "visibleCertification",
-  //       "doorGlazing",
-  //       "pyroGlazing",
-  //     ];
-
-  //     const complianceChecks = complianceKeys.map((key) => ({
-  //       complianceCheckMasterID:
-  //         (complianceCheck as any)[`${key}Id`] || "f54b5067-b68d-43b7-83cd-239dcedc5976",
-  //       isCompliant: complianceCheck[key as keyof typeof complianceCheck] ?? true,
-  //       actionItem: {
-  //         timeline: (complianceCheck as any)[`${key}Timeline`] || "",
-  //         severity: (complianceCheck as any)[`${key}Severity`] || "",
-  //         category: (complianceCheck as any)[`${key}Category`] || "",
-  //         remediation: (complianceCheck as any)[`${key}Remediation`] || "",
-  //         dueDate: (complianceCheck as any)[`${key}DueDate`] || nowIso,
-  //         comment: (complianceCheck as any)[`${key}Comments`] || "",
-  //         photos: actionImages[key] || [],
-  //       },
-  //     }));
-  //     console.log("4️⃣ Compliance Checks:", complianceChecks);
-
-  //     // 5. Physical Measurements
-  //     const physicalFields = [
-  //       "head",
-  //       "hinge",
-  //       "closing",
-  //       "threshold",
-  //       "doorThickness",
-  //       "frameDepth",
-  //       "doorSize",
-  //       "fullDoorsetSize",
-  //     ];
-
-  //     const physicalMeasurement: Record<string, any> = {
-  //       fireRatingID: formData.fireResistance || "",
-  //       hingePosition: formData.hingeLocation || "",
-  //       comments: "",
-  //     };
-
-  //     physicalFields.forEach((key) => {
-  //       physicalMeasurement[key] = {
-  //         value: Number(formData[key as keyof FormData] || 0),
-  //         timeline: (formData as any)[`${key}Timeline`] || "",
-  //         severity: (formData as any)[`${key}Severity`] || "",
-  //         category: (formData as any)[`${key}Category`] || "",
-  //         remediation: (formData as any)[`${key}Remediation`] || "",
-  //         dueDate: (formData as any)[`${key}DueDate`] || nowIso,
-  //         comment: (formData as any)[`${key}Comments`] || "",
-  //         photos: actionImages[key] || [],
-  //       };
-  //     });
-  //     console.log("5️⃣ Physical Measurement:", physicalMeasurement);
-
-  //     // 6. Additional Info
-  //     const additionalInfos = [
-  //       { imagePath: basicInfo.floorPlan ? [basicInfo.floorPlan] : [] },
-  //     ];
-  //     console.log("6️⃣ Additional Info:", additionalInfos);
-
-  //     // 7. Final Payload
-  //     const payload = {
-  //       propertyInfo,
-  //       inspectedPropertyFloorsInfo,
-  //       inspectedDoorDto,
-  //       complianceChecks,
-  //       additionalInfos,
-  //       physicalMeasurement,
-  //     };
-  //     console.log("📦 Final Payload:", payload);
-
-  //     // 8. Submit
-  //     const response = await http.post(SAVE_SURVEY_FORM_DATA, payload );
-  //     if (response.status === 200 || response.status === 201) {
-  //       alert(`✅ Door inspection saved: ${formData.doorNumber}`);
-  //     } else {
-  //       alert("❌ Submission failed. Try again.");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error during submission:", error);
-  //     alert("❌ Submission failed.");
-  //   } finally {
-  //     setSubmitting(false);
-  //   }
-  // };
-
-  // import { Alert } from "react-native";
-  // import http from "../api/server"; // Adjust path if needed
 
   const manualComplianceIds: Record<string, string> = {
     complianceCheckMasterID: "f54b5067-b68d-43b7-83cd-239dcedc5976",
@@ -839,366 +678,248 @@ const Dashboard = () => {
     return `data:image/jpeg;base64,${base64}`;
   };
 
-  // const handleSubmit = async () => {
-  //   setSubmitting(true);
-  //   try {
-  //     const nowIso = new Date().toISOString();
+  const base64ToFile = (base64String: string, filename: string): File => {
+    const arr = base64String.split(",");
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) u8arr[n] = bstr.charCodeAt(n);
+    return new File([u8arr], filename, { type: mime });
+  };
 
-  //     // 1. Property Info
-  //     const PropertyInfo = {
-  //       propertyMasterId: propertyMasterId,
-  //       inspectionStartedOn: nowIso,
-  //       inspectedBy: userObj?.userName || "",
-  //       inspectedById: userObj?.userId || 0,
-  //       inspectionApprovedDate: nowIso,
-  //       lastInspectionDate: nowIso,
-  //       inspectionApprovedBy: "",
-  //       lastInspectedBy: userObj?.userName || "",
-  //       status: "Compliant",
-  //       inspectionUpdatedBy: userObj?.userName || "",
-  //       inspectionUpdatedOn: nowIso,
-  //       nextInspectionDueDate: nowIso,
-  //     };
-
-  //     // 2. Floor Info
-  //     const InspectedPropertyFloorsInfo = {
-  //       floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
-  //       floorPlanImage: basicInfo.floorPlan || "",
-  //       createdBy: userObj?.userName || "",
-  //       updatedBy: userObj?.userName || "",
-  //     };
-
-  //     // 3. Door DTO
-  //     const doorPhoto = {
-  //       additionalProp1: formData.doorPhoto || "",
-  //       additionalProp2: "",
-  //       additionalProp3: "",
-  //     };
-
-  //     const InspectedDoorDto = {
-  //       doorTypeId: formData.doorType || "",
-  //       doorRefNumber: formData.doorNumber || "",
-  //       doorNumber: formData.doorNumber || "",
-  //       floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
-  //       floorImage: basicInfo.floorPlan || "",
-  //       inspectedBy: userObj?.userName || "",
-  //       doorInspectionDate: nowIso,
-  //       status: "Compliant",
-  //       flatName: "",
-  //       doorTypeName: formData.doorTypeName || "",
-  //       propertyName: basicInfo.buildingName || "",
-  //       otherDoorTypeName: formData.doorOther || "",
-  //       doorLocation: basicInfo.location || "",
-  //       doorPhoto: doorPhoto,
-  //     };
-
-  //     // 4. Compliance Checks
-  //     const complianceKeys = [
-  //       "intumescentStrips",
-  //       "coldSmokeSeals",
-  //       "selfClosingDevice",
-  //       "fireLockedSign",
-  //       "fireShutSign",
-  //       "holdOpenDevice",
-  //       "visibleCertification",
-  //       "doorGlazing",
-  //       "pyroGlazing",
-  //     ];
-
-  //     const complianceChecks = complianceKeys.map((key) => {
-  //       const id = complianceCheck[`${key}Id`] || "";
-  //       const isCompliant = complianceCheck[key] ?? true;
-
-  //       const hasActionFields =
-  //         complianceCheck[`${key}Severity`] !== "Select" ||
-  //         complianceCheck[`${key}Category`] !== "Select" ||
-  //         complianceCheck[`${key}Timeline`] !== "Select" ||
-  //         complianceCheck[`${key}Comments`] !== "" ||
-  //         complianceCheck[`${key}Remediation`] !== "";
-
-  //       const dueDateVal = complianceCheck[`${key}DueDate`] || null;
-
-  //       return {
-  //         complianceCheckMasterID: id,
-  //         isCompliant,
-  //         actionItem: {
-  //           timeline: isCompliant ? "" : complianceCheck[`${key}Timeline`] || "",
-  //           severity: isCompliant ? "" : complianceCheck[`${key}Severity`] || "",
-  //           comment: isCompliant ? "" : complianceCheck[`${key}Comments`] || "",
-  //           category: isCompliant ? "" : complianceCheck[`${key}Category`] || "",
-  //           dueDate: isCompliant ? null : dueDateVal || null,
-  //           remediation: isCompliant
-  //             ? ""
-  //             : complianceCheck[`${key}Remediation`] || "",
-  //           photos: isCompliant ? [] : actionImages[key] || [],
-  //         },
-  //       };
-  //     });
-
-  //     // 5. Physical Measurements
-  //     const physicalFields = [
-  //       "head",
-  //       "hinge",
-  //       "closing",
-  //       "threshold",
-  //       "doorThickness",
-  //       "frameDepth",
-  //       "doorSize",
-  //       "fullDoorsetSize",
-  //     ];
-
-  //     const PhysicalMeasurement: Record<string, any> = {
-  //       fireRatingID: formData.fireResistance || "",
-  //       hingePosition: formData.hingeLocation || "",
-  //       comments: "",
-  //     };
-
-  //     physicalFields.forEach((key) => {
-  //       PhysicalMeasurement[key] = {
-  //         value: Number(formData[key as keyof typeof formData] || 0),
-  //         timeline: (formData as any)[`${key}Timeline`] || "",
-  //         severity: (formData as any)[`${key}Severity`] || "",
-  //         category: (formData as any)[`${key}Category`] || "",
-  //         remediation: (formData as any)[`${key}Remediation`] || "",
-  //         dueDate: (formData as any)[`${key}DueDate`] || null,
-  //         comment: (formData as any)[`${key}Comments`] || "",
-  //         photos: actionImages[key] || [],
-  //       };
-  //     });
-
-  //     // 6. Additional Info
-  //     const AdditionalInfos = [
-  //       { imagePath: basicInfo.floorPlan ? [basicInfo.floorPlan] : [] },
-  //     ];
-
-  //     // 7. Final Payload
-  //     const payload = {
-  //       PropertyInfo,
-  //       InspectedPropertyFloorsInfo,
-  //       InspectedDoorDto,
-  //       complianceChecks,
-  //       AdditionalInfos,
-  //       PhysicalMeasurement,
-  //     };
-
-  //     console.log("🔍 Final Payload:", JSON.stringify(payload, null, 2));
-
-  //     // 8. Submit (wrap in { dto: payload } if backend expects)
-  //     const response = await http.post(SAVE_SURVEY_FORM_DATA, payload);
-
-  //     if (response.status === 200 || response.status === 201) {
-  //       Alert.alert("✅ Success", `Inspection saved for door: ${formData.doorNumber}`);
-  //     } else {
-  //       Alert.alert("❌ Error", "Submission failed. Try again.");
-  //     }
-  //   } catch (error: any) {
-  //     if (error.response) {
-  //       const backendData = error.response.data;
-  //       console.log("❌ Server responded:", backendData);
-  //       if (backendData?.errors) {
-  //         const firstKey = Object.keys(backendData.errors)[0];
-  //         const firstMsg = backendData.errors[firstKey][0];
-  //         Alert.alert("Validation Error", `${firstKey}: ${firstMsg}`);
-  //       } else {
-  //         Alert.alert("Server Error", backendData.message || "Unknown error");
-  //       }
-  //     } else if (error.request) {
-  //       Alert.alert("Network Error", "No response from server.");
-  //     } else {
-  //       Alert.alert("Error", error.message);
-  //     }
-  //   } finally {
-  //     setSubmitting(false);
-  //   }
-  // };
-
-  // ✅ Dynamic handleSubmit function
-  // ✅ Dynamic handleSubmit function
-  const handleSubmit = async () => {
-    setSubmitting(true);
+  const uploadImageAPI = async (newImages: string[], field: string): Promise<string> => {
     try {
-      const nowIso = new Date().toISOString();
+      const latestImage = newImages[newImages.length - 1];
+      const file = base64ToFile(latestImage, `${field}_Image_${Date.now()}.jpg`);
+      const formDataToUpload = new FormData();
+      formDataToUpload.append("File", file);
+      formDataToUpload.append("Client", "ABC");
+      formDataToUpload.append("Property", "Candor");
+      formDataToUpload.append("InspectionDate", new Date().toISOString());
 
-      // 1. Property Info
-      const PropertyInfo = {
-        propertyMasterId: propertyMasterId,
-        inspectionStartedOn: nowIso,
-        inspectedBy: userObj?.userName || "",
-        inspectedById: userObj?.userId || 0,
-        inspectionApprovedDate: nowIso,
-        lastInspectionDate: nowIso,
-        inspectionApprovedBy: "",
-        lastInspectedBy: userObj?.userName || "",
-        status: "Compliant",
-        inspectionUpdatedBy: userObj?.userName || "",
-        inspectionUpdatedOn: nowIso,
-        nextInspectionDueDate: nowIso,
-      };
+      const response = await fetch(`${hostName}api/Inspection/upload`, {
+        method: "POST",
+        body: formDataToUpload,
+        headers: {
+          Authorization: `Bearer ${userObj?.token}`,
+        },
+      });
+console.log("Auth Token:", `Bearer ${userObj?.token}`);
 
-      // 2. Floor Info
-      const InspectedPropertyFloorsInfo = {
-        floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
-        floorPlanImage: basicInfo.floorPlan || "",
-        createdBy: userObj?.userName || "",
-        updatedBy: userObj?.userName || "",
-      };
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      // 3. Door DTO
-      const doorPhoto = {
+      const dataResponse = await response.json();
+      return dataResponse?.result?.blobUrl || "";
+    } catch (error: any) {
+      setError(error?.data || error);
+      return "";
+    }
+  };
+
+const handleImagesChange = async (newImages: string[], field: string) => {
+  const uploadedUrl = await uploadImageAPI(newImages, field);
+  if (!uploadedUrl) return;
+
+  switch (field) {
+    case "Additional": {
+      const combined = [...floorPlanImages, uploadedUrl];
+      setFloorPlanImages(combined);
+      break;
+    }
+
+    case "Door": {
+      setFormData((prev) => ({
+        ...prev,
+        doorPhoto: uploadedUrl,
+        doorPhotos: [...(prev.doorPhotos || []), uploadedUrl],
+      }));
+      break;
+    }
+
+    case "Floor": {
+      setBasicInfo((prev) => ({
+        ...prev,
+        floorPlan: [...(prev.floorPlan || []), uploadedUrl],
+      }));
+      break;
+    }
+
+    default:
+      console.warn(`Unhandled image field: ${field}`);
+      break;
+  }
+};
+
+
+
+
+
+
+
+const handleSubmit = async () => {
+  setSubmitting(true);
+  try {
+    const nowIso = new Date().toISOString();
+
+    const PropertyInfo = {
+      propertyMasterId: propertyMasterId,
+      inspectionStartedOn: nowIso,
+      inspectedBy: userObj?.userName || "",
+      inspectedById: userObj?.userId || 0,
+      inspectionApprovedDate: nowIso,
+      lastInspectionDate: nowIso,
+      inspectionApprovedBy: "",
+      lastInspectedBy: userObj?.userName || "",
+      status: "Compliant",
+      inspectionUpdatedBy: userObj?.userName || "",
+      inspectionUpdatedOn: nowIso,
+      nextInspectionDueDate: nowIso,
+    };
+
+    const InspectedPropertyFloorsInfo = {
+      floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
+      floorPlanImage: basicInfo.floorPlan[0] || "",
+      createdBy: userObj?.userName || "",
+      updatedBy: userObj?.userName || "",
+    };
+
+    const InspectedDoorDto = {
+      doorTypeId: formData.doorType || "",
+      doorRefNumber: formData.doorNumber || "",
+      doorNumber: formData.doorNumber || "",
+      floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
+      floorImage: basicInfo.floorPlan[0] || "",
+      inspectedBy: userObj?.userName || "",
+      doorInspectionDate: nowIso,
+      status: "Compliant",
+      flatName: "",
+      doorTypeName: formData.doorTypeName || "",
+      propertyName: basicInfo.buildingName || "",
+      otherDoorTypeName: formData.doorOther || "",
+      doorLocation: basicInfo.location || "",
+      doorPhoto: {
         additionalProp1: formData.doorPhoto || "",
         additionalProp2: "",
         additionalProp3: "",
+      },
+    };
+
+    const complianceKeys = [
+      "intumescentStrips",
+      "coldSmokeSeals",
+      "selfClosingDevice",
+      "fireLockedSign",
+      "fireShutSign",
+      "holdOpenDevice",
+      "visibleCertification",
+      "doorGlazing",
+      "pyroGlazing",
+    ];
+
+    const complianceChecks = complianceKeys.map((key) => {
+      const id = complianceCheck[`${key}Id`] || "";
+      const isCompliant = complianceCheck[key] ?? true;
+      const dueDateVal = complianceCheck[`${key}DueDate`] || nowIso;
+
+      return {
+        complianceCheckMasterID: id,
+        isCompliant,
+        actionItem: {
+          timeline: isCompliant ? "" : complianceCheck[`${key}Timeline`] || "",
+          severity: isCompliant ? "" : complianceCheck[`${key}Severity`] || "",
+          comment: isCompliant ? "" : complianceCheck[`${key}Comments`] || "",
+          category: isCompliant ? "" : complianceCheck[`${key}Category`] || "",
+          dueDate: isCompliant ? null : dueDateVal,
+          remediation: isCompliant ? "" : complianceCheck[`${key}Remediation`] || "",
+          photos: isCompliant ? [] : actionImages[key] || [],
+        },
       };
+    });
 
-      const InspectedDoorDto = {
-        doorTypeId: formData.doorType || "",
-        doorRefNumber: formData.doorNumber || "",
-        doorNumber: formData.doorNumber || "",
-        floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
-        floorImage: basicInfo.floorPlan || "",
-        inspectedBy: userObj?.userName || "",
-        doorInspectionDate: nowIso,
-        status: "Compliant",
-        flatName: "",
-        doorTypeName: formData.doorTypeName || "",
-        propertyName: basicInfo.buildingName || "",
-        otherDoorTypeName: formData.doorOther || "",
-        doorLocation: basicInfo.location || "",
-        doorPhoto,
+    const physicalFields = [
+      "head",
+      "hinge",
+      "closing",
+      "threshold",
+      "doorThickness",
+      "frameDepth",
+      "doorSize",
+      "fullDoorsetSize",
+    ];
+
+    const PhysicalMeasurement: Record<string, any> = {
+      fireRatingID: formData.fireResistance || "",
+      hingePosition: formData.hingeLocation || "",
+    };
+
+    physicalFields.forEach((key: string) => {
+      const timeline = formData[`${key}Timeline` as keyof typeof formData] || "";
+      const severity = formData[`${key}Severity` as keyof typeof formData] || "";
+      const category = formData[`${key}Category` as keyof typeof formData] || "";
+      const remediation = formData[`${key}Remediation` as keyof typeof formData] || "";
+      const dueDate = formData[`${key}DueDate` as keyof typeof formData] || nowIso;
+      const comment = formData[`${key}Comments` as keyof typeof formData] || "";
+
+      PhysicalMeasurement[key] = {
+        value: Number(formData[key as keyof typeof formData] || 0),
+        actionItem: "",
+        timeline,
+        severity,
+        category,
+        remediation,
+        dueDate,
+        comment,
+        photos: actionImages[key] || [],
       };
+    });
 
-      // 4. Compliance Checks
-      const complianceKeys = [
-        "intumescentStrips",
-        "coldSmokeSeals",
-        "selfClosingDevice",
-        "fireLockedSign",
-        "fireShutSign",
-        "holdOpenDevice",
-        "visibleCertification",
-        "doorGlazing",
-        "pyroGlazing",
-      ];
+    PhysicalMeasurement["comments"] = "";
 
-      const complianceChecks = complianceKeys.map((key) => {
-        const id = complianceCheck[`${key}Id`] || "";
-        const isCompliant = complianceCheck[key] ?? true;
-        const dueDateVal = complianceCheck[`${key}DueDate`] || nowIso;
+    const AdditionalInfos = [
+      { imagePath: basicInfo.floorPlan[0] ? [basicInfo.floorPlan[0]] : [] },
+    ];
 
-        return {
-          complianceCheckMasterID: id,
-          isCompliant,
-          actionItem: {
-            timeline: isCompliant
-              ? ""
-              : complianceCheck[`${key}Timeline`] || "",
-            severity: isCompliant
-              ? ""
-              : complianceCheck[`${key}Severity`] || "",
-            comment: isCompliant ? "" : complianceCheck[`${key}Comments`] || "",
-            category: isCompliant
-              ? ""
-              : complianceCheck[`${key}Category`] || "",
-            dueDate: isCompliant ? null : dueDateVal,
-            remediation: isCompliant
-              ? ""
-              : complianceCheck[`${key}Remediation`] || "",
-            photos: isCompliant ? [] : actionImages[key] || [],
-          },
-        };
-      });
+    const payload = {
+      propertyInfo: PropertyInfo,
+      inspectedPropertyFloorsInfo: InspectedPropertyFloorsInfo,
+      inspectedDoorDto: InspectedDoorDto,
+      complianceChecks,
+      additionalInfos: AdditionalInfos,
+      physicalMeasurement: PhysicalMeasurement,
+    };
 
-      // 5. Physical Measurements
-      const physicalFields = [
-        "head",
-        "hinge",
-        "closing",
-        "threshold",
-        "doorThickness",
-        "frameDepth",
-        "doorSize",
-        "fullDoorsetSize",
-      ];
+    // ✅ Log payload clearly
+    console.log("📦 Final Payload:\n", JSON.stringify(payload, null, 2));
 
-      const PhysicalMeasurement: Record<string, any> = {
-        fireRatingID: formData.fireResistance || "",
-        hingePosition: formData.hingeLocation || "",
-        comments: "",
-      };
+    const response = await http.post(SAVE_SURVEY_FORM_DATA, payload);
 
-      physicalFields.forEach((key: string) => {
-        const timeline =
-          formData[`${key}Timeline` as keyof typeof formData] || "";
-        const severity =
-          formData[`${key}Severity` as keyof typeof formData] || "";
-        const category =
-          formData[`${key}Category` as keyof typeof formData] || "";
-        const remediation =
-          formData[`${key}Remediation` as keyof typeof formData] || "";
-        const dueDate =
-          formData[`${key}DueDate` as keyof typeof formData] || nowIso;
-        const comment =
-          formData[`${key}Comments` as keyof typeof formData] || "";
-
-        PhysicalMeasurement[key] = {
-          value: Number(formData[key as keyof typeof formData] || 0),
-          timeline,
-          severity,
-          category,
-          remediation,
-          dueDate,
-          comment,
-          photos: actionImages[key] || [],
-        };
-      });
-
-      // 6. Additional Info
-      const AdditionalInfos = [
-        { imagePath: basicInfo.floorPlan ? [basicInfo.floorPlan] : [] },
-      ];
-
-      // 7. Final Payload
-      const payload = {
-        PropertyInfo,
-        InspectedPropertyFloorsInfo,
-        InspectedDoorDto,
-        complianceChecks,
-        AdditionalInfos,
-        PhysicalMeasurement,
-      };
-
-      console.log("🔍 Final Payload:", JSON.stringify(payload, null, 2));
-
-      const response = await http.post(SAVE_SURVEY_FORM_DATA, payload);
-      setMessage("Form submitted successfully!");
-
-      if (response.status === 200 || response.status === 201) {
-        Alert.alert("✅ Success", "Inspection form submitted successfully.", [
-          { text: "OK", onPress: () => navigation.goBack() },
-        ]);
-      } else {
-        Alert.alert("❌ Error", "Submission failed. Try again.");
-      }
-    } catch (error: any) {
-      if (error.response) {
-        const backendData = error.response.data;
-        console.log("❌ Server responded:", backendData);
-        if (backendData?.errors) {
-          const firstKey = Object.keys(backendData.errors)[0];
-          const firstMsg = backendData.errors[firstKey][0];
-          Alert.alert("Validation Error", `${firstKey}: ${firstMsg}`);
-        } else {
-          Alert.alert("Server Error", backendData.message || "Unknown error");
-        }
-      } else if (error.request) {
-        Alert.alert("Network Error", "No response from server.");
-      } else {
-        Alert.alert("Error", error.message);
-      }
-    } finally {
-      setSubmitting(false);
+    if (response.status === 200 || response.status === 201) {
+      setMessage("✅ Inspection form submitted successfully!");
+      Alert.alert("Success", "✅ Inspection form submitted successfully.", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
+    } else {
+      Alert.alert("❌ Error", "Submission failed. Try again.");
     }
-  };
+  } catch (error: any) {
+    if (error.response?.data?.errors) {
+      console.error("🚨 Validation Errors:", error.response.data.errors);
+      const firstKey = Object.keys(error.response.data.errors)[0];
+      const firstMsg = error.response.data.errors[firstKey][0];
+      Alert.alert("Validation Error", `${firstKey}: ${firstMsg}`);
+    } else {
+      Alert.alert("Submission Error", error.message || "Unknown error");
+    }
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1272,19 +993,35 @@ const Dashboard = () => {
           />
 
           <Text style={styles.label}>Upload Floor Plan*</Text>
-          <TouchableOpacity
+          <Capture
+  onImagesChange={(images) => handleImagesChange(images, "Floor")}
+  reset={resetCaptureFlag}
+  onImageDelete={(index) => handleDeleteImages(index, "Floor")}
+  fieldValue="floorFile"
+  singleImageCapture={true}
+  isView={false} // ✅ This enables remove button
+  savedImages={basicInfo.floorPlan} // ✅ Must be correctly updated
+  mandatoryFieldRef={mandatoryFieldRef}
+  allowGallery={true}
+/>
+
+
+
+          {/* <TouchableOpacity
             style={styles.button}
             onPress={() => pickImage("floorPlan")}
           >
             <Text>Choose File</Text>
             <Text style={styles.cameraIcon}>📷</Text>
           </TouchableOpacity>
-          {basicInfo.floorPlan && (
+          {basicInfo.floorPlan.map((imgUri, index) => (
             <Image
-              source={{ uri: basicInfo.floorPlan }}
+              key={index}
+              source={{ uri: imgUri }}
               style={styles.preview}
             />
-          )}
+          ))} */}
+
 
           <Text style={styles.label}>Door Number</Text>
           <TextInput
@@ -1325,7 +1062,19 @@ const Dashboard = () => {
           )}
 
           <Text style={styles.label}>Upload Door Photo*</Text>
-          <TouchableOpacity
+           <Capture
+  onImagesChange={(images) => handleImagesChange(images, "Door")}
+  reset={resetCaptureFlag}
+  onImageDelete={(index) => handleDeleteImages(index, "Door")}
+  fieldValue="doorFile"
+  singleImageCapture
+  isView={false}
+  savedImages={formData.doorPhotos}
+  mandatoryFieldRef={mandatoryFieldRef}
+  allowGallery={true} // ✅ add this to let Capture also open gallery
+/>
+
+          {/* <TouchableOpacity
             style={styles.button}
             onPress={() => pickImage("doorPhoto")}
           >
@@ -1337,7 +1086,7 @@ const Dashboard = () => {
               source={{ uri: formData.doorPhoto }}
               style={styles.preview}
             />
-          )}
+          )} */}
         </View>
 
         {/* QR CODE SECTION */}
@@ -1419,7 +1168,7 @@ const Dashboard = () => {
               <TextInput
                 style={styles.input}
                 keyboardType="numeric"
-                value={formData[key as FormDataKey]}
+                value={formData[key as FormDataKey]?.toString() ?? ""}
                 onChangeText={(val) => {
                   const filteredVal = val.replace(/[-eE]/g, "");
                   handleGapsChange(key, filteredVal);
@@ -1429,6 +1178,7 @@ const Dashboard = () => {
                   if (ref) mandatoryFieldRef.current[key] = ref;
                 }}
               />
+
 
               {actionmenuFlag[key] && (
                 <View style={styles.captureBox}>
@@ -1512,33 +1262,33 @@ const Dashboard = () => {
               label: string;
               show?: boolean;
             }[] = [
-              {
-                key: "intumescentStrips",
-                label: "Are there intumescent strips?",
-              },
-              {
-                key: "coldSmokeSeals",
-                label: "Are there cold smoke seals?",
-                show:
-                  formData.fireResistance === "5" ||
-                  formData.fireResistance === "6" ||
-                  formData.fireResistance === "7",
-              },
-              { key: "selfClosingDevice", label: "Self closing device?" },
-              { key: "fireLockedSign", label: "Fire door Keep Locked sign?" },
-              { key: "fireShutSign", label: "Fire door Keep Shut sign?" },
-              { key: "holdOpenDevice", label: "Is there a hold open device?" },
-              {
-                key: "visibleCertification",
-                label: "Is certification visible on fire door?",
-              },
-              { key: "doorGlazing", label: "Does the door contain glazing?" },
-              {
-                key: "pyroGlazing",
-                label: "Is glazing pyro glazing?",
-                show: isGlazing,
-              },
-            ];
+                {
+                  key: "intumescentStrips",
+                  label: "Are there intumescent strips?",
+                },
+                {
+                  key: "coldSmokeSeals",
+                  label: "Are there cold smoke seals?",
+                  show:
+                    formData.fireResistance === "5" ||
+                    formData.fireResistance === "6" ||
+                    formData.fireResistance === "7",
+                },
+                { key: "selfClosingDevice", label: "Self closing device?" },
+                { key: "fireLockedSign", label: "Fire door Keep Locked sign?" },
+                { key: "fireShutSign", label: "Fire door Keep Shut sign?" },
+                { key: "holdOpenDevice", label: "Is there a hold open device?" },
+                {
+                  key: "visibleCertification",
+                  label: "Is certification visible on fire door?",
+                },
+                { key: "doorGlazing", label: "Does the door contain glazing?" },
+                {
+                  key: "pyroGlazing",
+                  label: "Is glazing pyro glazing?",
+                  show: isGlazing,
+                },
+              ];
             return complianceItems
               .filter((item) => item.show === undefined || item.show)
               .map(({ key, label }) => (
@@ -1719,3 +1469,15 @@ const styles = StyleSheet.create({
 });
 
 export default Dashboard;
+function setError(arg0: any) {
+  throw new Error("Function not implemented.");
+}
+
+function setFloorPlanImages(combined: any[]) {
+  throw new Error("Function not implemented.");
+}
+
+function setHighlightDoor(arg0: boolean) {
+  throw new Error("Function not implemented.");
+}
+
