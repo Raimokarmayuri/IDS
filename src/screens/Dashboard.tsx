@@ -1,4 +1,3 @@
-
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -29,6 +28,7 @@ import {
   SAVE_SURVEY_FORM_DATA,
 } from "../api/apiPath";
 import http from "../api/server";
+import Footer from "../components/common/Footer";
 import QrScanner from "../components/common/QrScanner";
 import Capture from "./Capture";
 import MiniCapture from "./MiniCapture";
@@ -88,9 +88,9 @@ const Dashboard = () => {
     date: string;
     location: string;
     floor: string;
-    floorPlan: string[], // make sure this matches what you're assigning
+    floorPlan: string[]; // make sure this matches what you're assigning
+    comments: string;
   }
-
 
   const [basicInfo, setBasicInfo] = useState<BasicInfo>({
     buildingName: "",
@@ -99,9 +99,8 @@ const Dashboard = () => {
     location: "",
     floor: "",
     floorPlan: [], // should be string, not array or object
+    comments: "",
   });
-
-
 
   type FormData = {
     doorNumber: string;
@@ -120,7 +119,7 @@ const Dashboard = () => {
     doorSize: string;
     fullDoorsetSize: string;
     compliance: string;
-    doorPhotos: string[],
+    doorPhotos: string[];
   };
 
   const [formData, setFormData] = useState<FormData>({
@@ -146,17 +145,6 @@ const Dashboard = () => {
 
   const key: FormDataKey = "doorNumber"; // Example, adjust accordingly
 
-  //   const [actionmenuFlag, setActionMenuFlag] = useState({
-  //   head: false,
-  //   hinge: false,
-  //   closing: false,
-  //   threshold: false,
-  //   doorThickness: false,
-  //   frameDepth: false,
-  //   doorSize: false,
-  //   fullDoorsetSize: false
-  // });
-
   const [date, setDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
 
@@ -167,7 +155,7 @@ const Dashboard = () => {
     const y = date.getFullYear();
     return `${d}/${m}/${y}`;
   };
-
+  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowPicker(false); // Hide calendar after selection
     if (selectedDate) {
@@ -287,33 +275,30 @@ const Dashboard = () => {
   };
 
   const pickImage = async (field: string) => {
-  let result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    quality: 0.8,
-    base64: true,
-  });
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      base64: true,
+    });
 
-  if (!result.canceled && result.assets?.length > 0) {
-    const asset = result.assets[0];
-    const uri = asset.base64
-      ? `data:image/jpeg;base64,${asset.base64}`
-      : asset.uri;
+    if (!result.canceled && result.assets?.length > 0) {
+      const asset = result.assets[0];
+      const uri = asset.base64
+        ? `data:image/jpeg;base64,${asset.base64}`
+        : asset.uri;
 
-    if (field === "floorPlan") {
-      // Upload the image
-      const uploadedUrl = await uploadImageAPI([uri], "Floor");
-      if (uploadedUrl) {
-        setBasicInfo((prev) => ({
-          ...prev,
-          floorPlan: [...(prev.floorPlan || []), uploadedUrl],
-        }));
+      if (field === "floorPlan") {
+        // Upload the image
+        const uploadedUrl = await uploadImageAPI([uri], "Floor");
+        if (uploadedUrl) {
+          setBasicInfo((prev) => ({
+            ...prev,
+            floorPlan: [...(prev.floorPlan || []), uploadedUrl],
+          }));
+        }
       }
     }
-  }
-};
-
-
-
+  };
 
   const BASE_MEASURES: { [key: string]: number } = {
     head: 3,
@@ -602,42 +587,41 @@ const Dashboard = () => {
     }
   };
 
-const handleDeleteImages = (index: number, field: string) => {
-  switch (field) {
-    case "Floor": {
-      const updated = [...basicInfo.floorPlan];
-      updated.splice(index, 1);
-      setBasicInfo((prev) => ({ ...prev, floorPlan: updated }));
-      break;
+  const handleDeleteImages = (index: number, field: string) => {
+    switch (field) {
+      case "Floor": {
+        const updated = [...basicInfo.floorPlan];
+        updated.splice(index, 1);
+        setBasicInfo((prev) => ({ ...prev, floorPlan: updated }));
+        break;
+      }
+
+      case "Door": {
+        const updated = [...formData.doorPhotos];
+        updated.splice(index, 1);
+        setFormData((prev) => ({
+          ...prev,
+          doorPhotos: updated,
+          // Optional: clear doorPhoto if it's the one removed
+          doorPhoto: updated[0] || "",
+        }));
+        break;
+      }
+
+      default: {
+        const imgArr = actionImages[field] || [];
+        const updatedImages = imgArr.filter((_, i) => i !== index);
+        setActionImages((prev) => ({
+          ...prev,
+          [field]: updatedImages,
+        }));
+        break;
+      }
     }
 
-    case "Door": {
-      const updated = [...formData.doorPhotos];
-      updated.splice(index, 1);
-      setFormData((prev) => ({
-        ...prev,
-        doorPhotos: updated,
-        // Optional: clear doorPhoto if it's the one removed
-        doorPhoto: updated[0] || "",
-      }));
-      break;
-    }
-
-    default: {
-      const imgArr = actionImages[field] || [];
-      const updatedImages = imgArr.filter((_, i) => i !== index);
-      setActionImages((prev) => ({
-        ...prev,
-        [field]: updatedImages,
-      }));
-      break;
-    }
-  }
-
-  // Optional: delete from blob storage
-  // deleteImageAPI(imageToDelete);
-};
-
+    // Optional: delete from blob storage
+    // deleteImageAPI(imageToDelete);
+  };
 
   const [qrCodeImage, setQrCodeImage] = useState<string>("");
   const [showLoader, setShowLoader] = useState(false);
@@ -662,10 +646,70 @@ const handleDeleteImages = (index: number, field: string) => {
     }
   };
 
+  //   const handlePrint = () => {
+  //   const printWindow = window.open("", "_blank");
+  //   printWindow.document.write(`
+  //     <html>
+  //       <head>
+  //         <style>
+  //           body { font-family: Arial, sans-serif; }
+  //           .print-container { text-align: center; }
+  //           .modal-header { background-color: gray; color: white; padding: 10px; }
+  //         </style>
+  //       </head>
+  //       <body>
+  //         <div class="print-container" style="margin-top:100px">
+  //           <img src="${qrCode}" alt="QR Code" height='400px' width='400px' />
+  //           <h3>Door Reference Number: ${formData.doorNumber}</h3>
+  //         </div>
+  //       </body>
+  //     </html>
+  //   `);
+  //   printWindow.document.close();
+  //   printWindow.print();
+  //   printWindow.close();
+  // };
+
+  const handlePrint = (qrCode: string, formData: { doorNumber: string }) => {
+    const printWindow = window.open("", "_blank");
+
+    if (!printWindow) {
+      console.error("Failed to open print window.");
+      return;
+    }
+
+    const htmlContent = `
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; }
+          .print-container { text-align: center; }
+          .modal-header { background-color: gray; color: white; padding: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="print-container" style="margin-top:100px">
+          <img src="${qrCode}" alt="QR Code" height="400px" width="400px" />
+          <h3>Door Reference Number: ${formData.doorNumber}</h3>
+        </div>
+      </body>
+    </html>
+  `;
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+
+    // Wait for content to load before printing
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.close();
+    };
+  };
+
   if (loading) {
     return <ActivityIndicator size="large" style={{ marginTop: 50 }} />;
   }
-
 
   const manualComplianceIds: Record<string, string> = {
     complianceCheckMasterID: "f54b5067-b68d-43b7-83cd-239dcedc5976",
@@ -689,10 +733,16 @@ const handleDeleteImages = (index: number, field: string) => {
     return new File([u8arr], filename, { type: mime });
   };
 
-  const uploadImageAPI = async (newImages: string[], field: string): Promise<string> => {
+  const uploadImageAPI = async (
+    newImages: string[],
+    field: string
+  ): Promise<string> => {
     try {
       const latestImage = newImages[newImages.length - 1];
-      const file = base64ToFile(latestImage, `${field}_Image_${Date.now()}.jpg`);
+      const file = base64ToFile(
+        latestImage,
+        `${field}_Image_${Date.now()}.jpg`
+      );
       const formDataToUpload = new FormData();
       formDataToUpload.append("File", file);
       formDataToUpload.append("Client", "ABC");
@@ -706,7 +756,7 @@ const handleDeleteImages = (index: number, field: string) => {
           Authorization: `Bearer ${userObj?.token}`,
         },
       });
-console.log("Auth Token:", `Bearer ${userObj?.token}`);
+      console.log("Auth Token:", `Bearer ${userObj?.token}`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -720,206 +770,226 @@ console.log("Auth Token:", `Bearer ${userObj?.token}`);
     }
   };
 
-const handleImagesChange = async (newImages: string[], field: string) => {
-  const uploadedUrl = await uploadImageAPI(newImages, field);
-  if (!uploadedUrl) return;
+  const handleImagesChange = async (newImages: string[], field: string) => {
+    const uploadedUrl = await uploadImageAPI(newImages, field);
+    if (!uploadedUrl) return;
 
-  switch (field) {
-    case "Additional": {
-      const combined = [...floorPlanImages, uploadedUrl];
-      setFloorPlanImages(combined);
-      break;
+    switch (field) {
+      case "Additional": {
+        const combined = [...additionalImages, uploadedUrl];
+        setAdditionalImages(combined);
+        break;
+      }
+
+      case "Door": {
+        setFormData((prev) => ({
+          ...prev,
+          doorPhoto: uploadedUrl,
+          doorPhotos: [...(prev.doorPhotos || []), uploadedUrl],
+        }));
+        break;
+      }
+
+      case "Floor": {
+        setBasicInfo((prev) => ({
+          ...prev,
+          floorPlan: [...(prev.floorPlan || []), uploadedUrl],
+        }));
+        break;
+      }
+
+      default:
+        console.warn(`Unhandled image field: ${field}`);
+        break;
     }
+  };
 
-    case "Door": {
-      setFormData((prev) => ({
-        ...prev,
-        doorPhoto: uploadedUrl,
-        doorPhotos: [...(prev.doorPhotos || []), uploadedUrl],
-      }));
-      break;
-    }
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const nowIso = new Date().toISOString();
 
-    case "Floor": {
-      setBasicInfo((prev) => ({
-        ...prev,
-        floorPlan: [...(prev.floorPlan || []), uploadedUrl],
-      }));
-      break;
-    }
+      const PropertyInfo = {
+        propertyMasterId: propertyMasterId,
+        inspectionStartedOn: nowIso,
+        inspectedBy: userObj?.userName || "",
+        inspectedById: userObj?.userId || 0,
+        inspectionApprovedDate: nowIso,
+        lastInspectionDate: nowIso,
+        inspectionApprovedBy: "",
+        lastInspectedBy: userObj?.userName || "",
+        status: "Compliant",
+        inspectionUpdatedBy: userObj?.userName || "",
+        inspectionUpdatedOn: nowIso,
+        nextInspectionDueDate: nowIso,
+      };
 
-    default:
-      console.warn(`Unhandled image field: ${field}`);
-      break;
-  }
-};
+      const InspectedPropertyFloorsInfo = {
+        floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
+        floorPlanImage: basicInfo.floorPlan[0] || "",
+        createdBy: userObj?.userName || "",
+        updatedBy: userObj?.userName || "",
+      };
 
-
-
-
-
-
-
-const handleSubmit = async () => {
-  setSubmitting(true);
-  try {
-    const nowIso = new Date().toISOString();
-
-    const PropertyInfo = {
-      propertyMasterId: propertyMasterId,
-      inspectionStartedOn: nowIso,
-      inspectedBy: userObj?.userName || "",
-      inspectedById: userObj?.userId || 0,
-      inspectionApprovedDate: nowIso,
-      lastInspectionDate: nowIso,
-      inspectionApprovedBy: "",
-      lastInspectedBy: userObj?.userName || "",
-      status: "Compliant",
-      inspectionUpdatedBy: userObj?.userName || "",
-      inspectionUpdatedOn: nowIso,
-      nextInspectionDueDate: nowIso,
-    };
-
-    const InspectedPropertyFloorsInfo = {
-      floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
-      floorPlanImage: basicInfo.floorPlan[0] || "",
-      createdBy: userObj?.userName || "",
-      updatedBy: userObj?.userName || "",
-    };
-
-    const InspectedDoorDto = {
-      doorTypeId: formData.doorType || "",
-      doorRefNumber: formData.doorNumber || "",
-      doorNumber: formData.doorNumber || "",
-      floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
-      floorImage: basicInfo.floorPlan[0] || "",
-      inspectedBy: userObj?.userName || "",
-      doorInspectionDate: nowIso,
-      status: "Compliant",
-      flatName: "",
-      doorTypeName: formData.doorTypeName || "",
-      propertyName: basicInfo.buildingName || "",
-      otherDoorTypeName: formData.doorOther || "",
-      doorLocation: basicInfo.location || "",
-      doorPhoto: {
-        additionalProp1: formData.doorPhoto || "",
-        additionalProp2: "",
-        additionalProp3: "",
-      },
-    };
-
-    const complianceKeys = [
-      "intumescentStrips",
-      "coldSmokeSeals",
-      "selfClosingDevice",
-      "fireLockedSign",
-      "fireShutSign",
-      "holdOpenDevice",
-      "visibleCertification",
-      "doorGlazing",
-      "pyroGlazing",
-    ];
-
-    const complianceChecks = complianceKeys.map((key) => {
-      const id = complianceCheck[`${key}Id`] || "";
-      const isCompliant = complianceCheck[key] ?? true;
-      const dueDateVal = complianceCheck[`${key}DueDate`] || nowIso;
-
-      return {
-        complianceCheckMasterID: id,
-        isCompliant,
-        actionItem: {
-          timeline: isCompliant ? "" : complianceCheck[`${key}Timeline`] || "",
-          severity: isCompliant ? "" : complianceCheck[`${key}Severity`] || "",
-          comment: isCompliant ? "" : complianceCheck[`${key}Comments`] || "",
-          category: isCompliant ? "" : complianceCheck[`${key}Category`] || "",
-          dueDate: isCompliant ? null : dueDateVal,
-          remediation: isCompliant ? "" : complianceCheck[`${key}Remediation`] || "",
-          photos: isCompliant ? [] : actionImages[key] || [],
+      const InspectedDoorDto = {
+        doorTypeId: formData.doorType || "",
+        doorRefNumber: formData.doorNumber || "",
+        doorNumber: formData.doorNumber || "",
+        floorNo: basicInfo.floor ? Number(basicInfo.floor) : 0,
+        floorImage: basicInfo.floorPlan[0] || "",
+        inspectedBy: userObj?.userName || "",
+        doorInspectionDate: nowIso,
+        status: "Compliant",
+        flatName: "",
+        doorTypeName: formData.doorTypeName || "",
+        propertyName: basicInfo.buildingName || "",
+        otherDoorTypeName: formData.doorOther || "",
+        doorLocation: basicInfo.location || "",
+       
+        doorPhoto: {
+          additionalProp1: formData.doorPhoto || "",
+          additionalProp2: "",
+          additionalProp3: "",
         },
       };
-    });
 
-    const physicalFields = [
-      "head",
-      "hinge",
-      "closing",
-      "threshold",
-      "doorThickness",
-      "frameDepth",
-      "doorSize",
-      "fullDoorsetSize",
-    ];
+      const complianceKeys = [
+        "intumescentStrips",
+        "coldSmokeSeals",
+        "selfClosingDevice",
+        "fireLockedSign",
+        "fireShutSign",
+        "holdOpenDevice",
+        "visibleCertification",
+        "doorGlazing",
+        "pyroGlazing",
+      ];
 
-    const PhysicalMeasurement: Record<string, any> = {
-      fireRatingID: formData.fireResistance || "",
-      hingePosition: formData.hingeLocation || "",
-    };
+      const complianceChecks = complianceKeys.map((key) => {
+        const id = complianceCheck[`${key}Id`] || "";
+        const isCompliant = complianceCheck[key] ?? true;
+        const dueDateVal = complianceCheck[`${key}DueDate`] || nowIso;
 
-    physicalFields.forEach((key: string) => {
-      const timeline = formData[`${key}Timeline` as keyof typeof formData] || "";
-      const severity = formData[`${key}Severity` as keyof typeof formData] || "";
-      const category = formData[`${key}Category` as keyof typeof formData] || "";
-      const remediation = formData[`${key}Remediation` as keyof typeof formData] || "";
-      const dueDate = formData[`${key}DueDate` as keyof typeof formData] || nowIso;
-      const comment = formData[`${key}Comments` as keyof typeof formData] || "";
+        return {
+          complianceCheckMasterID: id,
+          isCompliant,
+          actionItem: {
+            timeline: isCompliant
+              ? ""
+              : complianceCheck[`${key}Timeline`] || "",
+            severity: isCompliant
+              ? ""
+              : complianceCheck[`${key}Severity`] || "",
+            comment: isCompliant ? "" : complianceCheck[`${key}Comments`] || "",
+            category: isCompliant
+              ? ""
+              : complianceCheck[`${key}Category`] || "",
+            dueDate: isCompliant ? null : dueDateVal,
+            remediation: isCompliant
+              ? ""
+              : complianceCheck[`${key}Remediation`] || "",
+            photos: isCompliant ? [] : actionImages[key] || [],
+          },
+        };
+      });
 
-      PhysicalMeasurement[key] = {
-        value: Number(formData[key as keyof typeof formData] || 0),
-        actionItem: "",
-        timeline,
-        severity,
-        category,
-        remediation,
-        dueDate,
-        comment,
-        photos: actionImages[key] || [],
+      const physicalFields = [
+        "head",
+        "hinge",
+        "closing",
+        "threshold",
+        "doorThickness",
+        "frameDepth",
+        "doorSize",
+        "fullDoorsetSize",
+      ];
+
+      const PhysicalMeasurement: Record<string, any> = {
+        fireRatingID: formData.fireResistance || "",
+        hingePosition: formData.hingeLocation || "",
       };
-    });
 
-    PhysicalMeasurement["comments"] = "";
+      physicalFields.forEach((key: string) => {
+        const timeline =
+          formData[`${key}Timeline` as keyof typeof formData] || "";
+        const severity =
+          formData[`${key}Severity` as keyof typeof formData] || "";
+        const category =
+          formData[`${key}Category` as keyof typeof formData] || "";
+        const remediation =
+          formData[`${key}Remediation` as keyof typeof formData] || "";
+        const dueDate =
+          formData[`${key}DueDate` as keyof typeof formData] || nowIso;
+        const comment =
+          formData[`${key}Comments` as keyof typeof formData] || "";
 
-    const AdditionalInfos = [
-      { imagePath: basicInfo.floorPlan[0] ? [basicInfo.floorPlan[0]] : [] },
-    ];
+        PhysicalMeasurement[key] = {
+          value: Number(formData[key as keyof typeof formData] || 0),
+          actionItem: "",
+          timeline,
+          severity,
+          category,
+          remediation,
+          dueDate,
+          comment,
+          photos: actionImages[key] || [],
+        };
+      });
 
-    const payload = {
-      propertyInfo: PropertyInfo,
-      inspectedPropertyFloorsInfo: InspectedPropertyFloorsInfo,
-      inspectedDoorDto: InspectedDoorDto,
-      complianceChecks,
-      additionalInfos: AdditionalInfos,
-      physicalMeasurement: PhysicalMeasurement,
-    };
 
-    // ✅ Log payload clearly
-    console.log("📦 Final Payload:\n", JSON.stringify(payload, null, 2));
+     PhysicalMeasurement["comments"] = basicInfo.comments || "";
 
-    const response = await http.post(SAVE_SURVEY_FORM_DATA, payload);
+      // const AdditionalInfos = [
+      //   { imagePath: basicInfo.floorPlan[0] ? [basicInfo.floorPlan[0]] : [] },
+      // ];
+      const AdditionalInfos = additionalImages.map((img) => ({
+        imagePath: [img],
+      }));
 
-    if (response.status === 200 || response.status === 201) {
-      setMessage("✅ Inspection form submitted successfully!");
-      Alert.alert("Success", "✅ Inspection form submitted successfully.", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
-    } else {
-      Alert.alert("❌ Error", "Submission failed. Try again.");
+      const payload = {
+        propertyInfo: PropertyInfo,
+        inspectedPropertyFloorsInfo: InspectedPropertyFloorsInfo,
+        inspectedDoorDto: InspectedDoorDto,
+        complianceChecks,
+        additionalInfos: AdditionalInfos,
+        physicalMeasurement: PhysicalMeasurement,
+      };
+
+      // ✅ Log payload clearly
+      console.log("📦 Final Payload:\n", JSON.stringify(payload, null, 2));
+
+      const response = await http.post(SAVE_SURVEY_FORM_DATA, payload);
+
+      if (response.status === 200 || response.status === 201) {
+        setMessage("✅ Inspection form submitted successfully!");
+        Alert.alert("Success", "✅ Inspection form submitted successfully.", [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        Alert.alert("❌ Error", "Submission failed. Try again.");
+      }
+    } catch (error: any) {
+      if (error.response?.data?.errors) {
+        console.error("🚨 Validation Errors:", error.response.data.errors);
+        const firstKey = Object.keys(error.response.data.errors)[0];
+        const firstMsg = error.response.data.errors[firstKey][0];
+        Alert.alert("Validation Error", `${firstKey}: ${firstMsg}`);
+      } else {
+        Alert.alert("Submission Error", error.message || "Unknown error");
+      }
+    } finally {
+      setSubmitting(false);
     }
-  } catch (error: any) {
-    if (error.response?.data?.errors) {
-      console.error("🚨 Validation Errors:", error.response.data.errors);
-      const firstKey = Object.keys(error.response.data.errors)[0];
-      const firstMsg = error.response.data.errors[firstKey][0];
-      Alert.alert("Validation Error", `${firstKey}: ${firstMsg}`);
+  };
+
+  const handleChange = (fieldName: string, value: string) => {
+    if (fieldName === "comments") {
+      const clean = removeSpecialCharacters(value);
+      setBasicInfo((prev) => ({ ...prev, comments: clean }));
     } else {
-      Alert.alert("Submission Error", error.message || "Unknown error");
+      setBasicInfo((prev) => ({ ...prev, [fieldName]: value }));
     }
-  } finally {
-    setSubmitting(false);
-  }
-};
-
-
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -994,18 +1064,16 @@ const handleSubmit = async () => {
 
           <Text style={styles.label}>Upload Floor Plan*</Text>
           <Capture
-  onImagesChange={(images) => handleImagesChange(images, "Floor")}
-  reset={resetCaptureFlag}
-  onImageDelete={(index) => handleDeleteImages(index, "Floor")}
-  fieldValue="floorFile"
-  singleImageCapture={true}
-  isView={false} // ✅ This enables remove button
-  savedImages={basicInfo.floorPlan} // ✅ Must be correctly updated
-  mandatoryFieldRef={mandatoryFieldRef}
-  allowGallery={true}
-/>
-
-
+            onImagesChange={(images) => handleImagesChange(images, "Floor")}
+            reset={resetCaptureFlag}
+            onImageDelete={(index) => handleDeleteImages(index, "Floor")}
+            fieldValue="floorFile"
+            singleImageCapture={true}
+            isView={false} // ✅ This enables remove button
+            savedImages={basicInfo.floorPlan} // ✅ Must be correctly updated
+            mandatoryFieldRef={mandatoryFieldRef}
+            allowGallery={true}
+          />
 
           {/* <TouchableOpacity
             style={styles.button}
@@ -1021,7 +1089,6 @@ const handleSubmit = async () => {
               style={styles.preview}
             />
           ))} */}
-
 
           <Text style={styles.label}>Door Number</Text>
           <TextInput
@@ -1062,17 +1129,17 @@ const handleSubmit = async () => {
           )}
 
           <Text style={styles.label}>Upload Door Photo*</Text>
-           <Capture
-  onImagesChange={(images) => handleImagesChange(images, "Door")}
-  reset={resetCaptureFlag}
-  onImageDelete={(index) => handleDeleteImages(index, "Door")}
-  fieldValue="doorFile"
-  singleImageCapture
-  isView={false}
-  savedImages={formData.doorPhotos}
-  mandatoryFieldRef={mandatoryFieldRef}
-  allowGallery={true} // ✅ add this to let Capture also open gallery
-/>
+          <Capture
+            onImagesChange={(images) => handleImagesChange(images, "Door")}
+            reset={resetCaptureFlag}
+            onImageDelete={(index) => handleDeleteImages(index, "Door")}
+            fieldValue="doorFile"
+            singleImageCapture
+            isView={false}
+            savedImages={formData.doorPhotos}
+            mandatoryFieldRef={mandatoryFieldRef}
+            allowGallery={true} // ✅ add this to let Capture also open gallery
+          />
 
           {/* <TouchableOpacity
             style={styles.button}
@@ -1124,6 +1191,16 @@ const handleSubmit = async () => {
             <View style={{ height: 400 }}>
               <QrScanner />
             </View>
+          )}
+          {qrCodeImage && (
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() =>
+                handlePrint(qrCodeImage, { doorNumber: formData.doorNumber })
+              }
+            >
+              <Text>Print QR Code</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -1178,7 +1255,6 @@ const handleSubmit = async () => {
                   if (ref) mandatoryFieldRef.current[key] = ref;
                 }}
               />
-
 
               {actionmenuFlag[key] && (
                 <View style={styles.captureBox}>
@@ -1262,33 +1338,33 @@ const handleSubmit = async () => {
               label: string;
               show?: boolean;
             }[] = [
-                {
-                  key: "intumescentStrips",
-                  label: "Are there intumescent strips?",
-                },
-                {
-                  key: "coldSmokeSeals",
-                  label: "Are there cold smoke seals?",
-                  show:
-                    formData.fireResistance === "5" ||
-                    formData.fireResistance === "6" ||
-                    formData.fireResistance === "7",
-                },
-                { key: "selfClosingDevice", label: "Self closing device?" },
-                { key: "fireLockedSign", label: "Fire door Keep Locked sign?" },
-                { key: "fireShutSign", label: "Fire door Keep Shut sign?" },
-                { key: "holdOpenDevice", label: "Is there a hold open device?" },
-                {
-                  key: "visibleCertification",
-                  label: "Is certification visible on fire door?",
-                },
-                { key: "doorGlazing", label: "Does the door contain glazing?" },
-                {
-                  key: "pyroGlazing",
-                  label: "Is glazing pyro glazing?",
-                  show: isGlazing,
-                },
-              ];
+              {
+                key: "intumescentStrips",
+                label: "Are there intumescent strips?",
+              },
+              {
+                key: "coldSmokeSeals",
+                label: "Are there cold smoke seals?",
+                show:
+                  formData.fireResistance === "5" ||
+                  formData.fireResistance === "6" ||
+                  formData.fireResistance === "7",
+              },
+              { key: "selfClosingDevice", label: "Self closing device?" },
+              { key: "fireLockedSign", label: "Fire door Keep Locked sign?" },
+              { key: "fireShutSign", label: "Fire door Keep Shut sign?" },
+              { key: "holdOpenDevice", label: "Is there a hold open device?" },
+              {
+                key: "visibleCertification",
+                label: "Is certification visible on fire door?",
+              },
+              { key: "doorGlazing", label: "Does the door contain glazing?" },
+              {
+                key: "pyroGlazing",
+                label: "Is glazing pyro glazing?",
+                show: isGlazing,
+              },
+            ];
             return complianceItems
               .filter((item) => item.show === undefined || item.show)
               .map(({ key, label }) => (
@@ -1306,28 +1382,88 @@ const handleSubmit = async () => {
               ));
           })()}
         </View>
+
+        <View
+          style={{
+            marginBottom: 24,
+            padding: 16,
+            backgroundColor: "#fff",
+            borderRadius: 8,
+            elevation: 2,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 10 }}>
+            Additional Photos
+          </Text>
+
+          <Capture
+            onImagesChange={(images) =>
+              handleImagesChange(images, "Additional")
+            }
+            onImageDelete={(index) => handleDeleteImages(index, "Additional")}
+            reset={resetCaptureFlag}
+            mandatoryFieldRef={mandatoryFieldRef}
+            fieldValue="additionalFile"
+            savedImages={additionalImages}
+            singleImageCapture={false}
+            allowGallery={true}
+            isView={false}
+          />
+        </View>
+
+        <View
+          style={{
+            marginBottom: 24,
+            padding: 16,
+            backgroundColor: "#fff",
+            borderRadius: 8,
+            elevation: 2,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 10 }}>
+            Additional Comments
+          </Text>
+          <TextInput
+            style={{
+              height: 120,
+              borderWidth: 1,
+              borderColor: "#ccc",
+              padding: 10,
+              borderRadius: 8,
+              textAlignVertical: "top",
+              backgroundColor: "#f9f9f9",
+            }}
+            multiline
+            placeholder="Comments"
+            value={basicInfo.comments}
+            onChangeText={(text) => handleChange("comments", text)} // ✅ matches key
+          />
+        </View>
       </ScrollView>
 
       <TouchableOpacity
         style={[
           styles.button,
           {
-            backgroundColor: "#007bff",
+            backgroundColor: "#ffffff", // white background
             marginTop: 30,
+            marginBottom: 20,
             paddingVertical: 14,
             borderRadius: 8,
             alignItems: "center",
             justifyContent: "center",
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.2,
-            shadowRadius: 4,
-            elevation: 3,
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+            elevation: 2,
+            borderWidth: 1, // black border
+            borderColor: "#000000",
           },
         ]}
         onPress={handleSubmit}
       >
-        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
+        <Text style={{ color: "#000000", fontSize: 16, fontWeight: "600" }}>
           {submitting ? "Submitting..." : "Submit"}
         </Text>
       </TouchableOpacity>
@@ -1346,6 +1482,8 @@ const handleSubmit = async () => {
           <Text style={{ color: "#155724", fontSize: 14 }}>{message}</Text>
         </View>
       ) : null}
+
+      <Footer />
     </SafeAreaView>
   );
 };
@@ -1480,4 +1618,3 @@ function setFloorPlanImages(combined: any[]) {
 function setHighlightDoor(arg0: boolean) {
   throw new Error("Function not implemented.");
 }
-

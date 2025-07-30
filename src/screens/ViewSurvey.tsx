@@ -1,391 +1,563 @@
-// import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+
+
 // import React, { useEffect, useState } from "react";
+// import { ActivityIndicator, Button, Image, ScrollView, StyleSheet, Text, View } from "react-native";
+// import { useSelector } from "react-redux";
 // import {
-//     ActivityIndicator,
-//     Alert,
-//     Button,
-//     ScrollView,
-//     StyleSheet,
-//     Switch,
-//     Text,
-//     TextInput,
-//     View,
-// } from "react-native";
-// import { FormData } from "../types/surveyTypes";
-// import { fetchInspectionData, saveSurveyFormData } from "../utils/api";
+//   GET_DOOR_INSPECTION_DATA,
+//   GET_PROPERTY_INFO_WITH_MASTER
+// } from "../api/apiPath";
+// import http from "../api/server";
+// import Toaster from "../components/common/Toaster";
 
-// const ViewSurvey: React.FC = () => {
-//   const navigation = useNavigation();
-//   const route = useRoute<RouteProp<{ params: { doorRefNumber: string } }, "params">>();
-//   const { doorRefNumber } = route.params;
+// interface RootState {
+//   user: { userObj: { userId: string; userName: string; token: string } };
+// }
 
-//   const [formData, setFormData] = useState<FormData>({
-//     buildingName: "",
-//     doorNumber: "",
-//     doorType: "Select",
-//     doorTypeName: "",
-//     doorOther: "",
-//     doorPhotos: [],
-//     fireResistance: "Select",
-//     head: null,
-//     headTimeline: "Select",
-//     headSeverity: "Select",
-//     headComments: "",
-//     headCategory: "Select",
-//     headDueDate: "",
-//     headRemediation: "",
-//     hinge: null,
-//     hingeLocation: "Select",
-//     hingeTimeline: "Select",
-//     hingeSeverity: "Select",
-//     hingeComments: "",
-//     hingeCategory: "Select",
-//     hingeDueDate: "",
-//     hingeRemediation: "",
-//     closing: null,
-//     closingTimeline: "Select",
-//     closingSeverity: "Select",
-//     closingComments: "",
-//     closingCategory: "Select",
-//     closingDueDate: "",
-//     closingRemediation: "",
-//     threshold: null,
-//     thresholdTimeline: "Select",
-//     thresholdSeverity: "Select",
-//     thresholdComments: "",
-//     thresholdCategory: "Select",
-//     thresholdDueDate: "",
-//     thresholdRemediation: "",
-//     doorThickness: null,
-//     frameDepth: null,
-//     doorSize: null,
-//     fullDoorsetSize: null,
+// interface Props {
+//   doorRefNumber: string;
+// }
+
+// const COMPLIANCE_CHECK_MASTER = {
+//   intumescentStripsId: "927da4a9-3c0b-46a7-8fb2-00af566a41e6",
+//   coldSmokeSealsId: "2d46bbc6-3a52-48ee-ad7d-80c3f3cdf352",
+//   selfClosingDeviceId: "145baf7e-bcc6-4c8f-b925-070e751ba2d6",
+//   fireLockedSignId: "942c7963-7d98-49db-a13e-63ee7b4fcfd1",
+//   fireShutSignId: "b7157137-2bfc-423d-b236-6620c527519b",
+//   holdOpenDeviceId: "a106ba4e-ef40-4510-851e-09d1315becc5",
+//   visibleCertificationId: "99ab902f-794a-491b-a6e3-26c8a57f9527",
+//   doorGlazingId: "1b2886cc-a1a3-4573-a5be-7df68c0db109",
+//   pyroGlazingId: "c9873267-e600-4c99-bf08-088dee277909",
+// };
+
+// const COMPLIANCE_CHECK = {
+//   intumescentStrips: true,
+//   intumescentStripsTimeline: "Select",
+//   intumescentStripsSeverity: "Select",
+//   intumescentStripsComments: "",
+//   intumescentStripsCategory: "Select",
+//   intumescentStripsDueDate: "",
+//   intumescentStripsRemediation: "",
+//   intumescentStripsName: "Are there intumescent strips?",
+//   intumescentStripsId: "927da4a9-3c0b-46a7-8fb2-00af566a41e6",
+//   coldSmokeSeals: true,
+//   coldSmokeSealsTimeline: "Select",
+//   coldSmokeSealsSeverity: "Select",
+//   coldSmokeSealsComments: "",
+//   coldSmokeSealsCategory: "Select",
+//   coldSmokeSealsDueDate: "",
+//   coldSmokeSealsRemediation: "",
+//   coldSmokeSealsName: "Are there cold smoke seals?",
+//   coldSmokeSealsId: "2d46bbc6-3a52-48ee-ad7d-80c3f3cdf352",
+//   selfClosingDevice: true,
+//   selfClosingDeviceTimeline: "Select",
+//   selfClosingDeviceSeverity: "Select",
+//   selfClosingDeviceComments: "",
+//   selfClosingDeviceCategory: "Select",
+//   selfClosingDeviceDueDate: "",
+//   selfClosingDeviceRemediation: "",
+//   selfClosingDeviceName: "Self closing device?",
+//   selfClosingDeviceId: "145baf7e-bcc6-4c8f-b925-070e751ba2d6",
+//   fireLockedSign: true,
+//   fireLockedSignTimeline: "Select",
+//   fireLockedSignSeverity: "Select",
+//   fireLockedSignComments: "",
+//   fireLockedSignCategory: "Select",
+//   fireLockedSignDueDate: "",
+//   fireLockedSignRemediation: "",
+//   fireLockedSignName: "Fire door Keep Locked sign?",
+//   fireLockedSignId: "942c7963-7d98-49db-a13e-63ee7b4fcfd1",
+//   fireShutSign: true,
+//   fireShutSignTimeline: "Select",
+//   fireShutSignSeverity: "Select",
+//   fireShutSignComments: "",
+//   fireShutSignCategory: "Select",
+//   fireShutSignDueDate: "",
+//   fireShutSignRemediation: "",
+//   fireShutSignName: "Fire door Keep Shut sign?",
+//   fireShutSignId: "b7157137-2bfc-423d-b236-6620c527519b",
+//   holdOpenDevice: true,
+//   holdOpenDeviceName: "Is there a hold open device?",
+//   holdOpenDeviceId: "a106ba4e-ef40-4510-851e-09d1315becc5",
+//   visibleCertification: true,
+//   visibleCertificationName: "Is certification visible on fire door?",
+//   visibleCertificationId: "99ab902f-794a-491b-a6e3-26c8a57f9527",
+//   doorGlazing: true,
+//   doorGlazingName: "Does the door contain glazing?",
+//   doorGlazingId: "1b2886cc-a1a3-4573-a5be-7df68c0db109",
+//   pyroGlazing: true,
+//   pyroGlazingTimeline: "Select",
+//   pyroGlazingSeverity: "Select",
+//   pyroGlazingComments: "",
+//   pyroGlazingCategory: "Select",
+//   pyroGlazingDueDate: "",
+//   pyroGlazingRemediation: "",
+//   pyroGlazingName: "Is glazing pyro glazing?",
+//   pyroGlazingId: "c9873267-e600-4c99-bf08-088dee277909",
+// };
+// const FORM_DATA = {
+//   buildingName: "",
+//   doorNumber: "",
+//   doorType: "Select",
+//   doorTypeName: "",
+//   doorOther: "",
+//   doorPhotos: [],
+//   fireResistance: "Select",
+//   head: null,
+//   headTimeline: "Select",
+//   headSeverity: "Select",
+//   headComments: "",
+//   headCategory: "Select",
+//   headDueDate: "",
+//   headRemediation: "",
+//   headPredefined: "",
+//   hinge: null,
+//   hingeLocation: "Select",
+//   hingeTimeline: "Select",
+//   hingeSeverity: "Select",
+//   hingeComments: "",
+//   hingeCategory: "Select",
+//   hingeDueDate: "",
+//   hingeRemediation: "",
+//   hingePredefined: "",
+//   closing: null,
+//   closingTimeline: "Select",
+//   closingSeverity: "Select",
+//   closingComments: "",
+//   closingCategory: "Select",
+//   closingDueDate: "",
+//   closingRemediation: "",
+//   closingPredefined: "",
+//   threshold: null,
+//   thresholdTimeline: "Select",
+//   thresholdSeverity: "Select",
+//   thresholdComments: "",
+//   thresholdCategory: "Select",
+//   thresholdDueDate: "",
+//   thresholdRemediation: "",
+//   thresholdPredefined: "",
+//   doorThickness: null,
+//   frameDepth: null,
+//   doorSize: null,
+//   fullDoorsetSize: null,
+// };
+// const BASE_MEASURES = {
+//   head: 3,
+//   hinge: 3,
+//   closing: 3,
+//   threshold: 3,
+// };
+// const BASE_MEASURES_COMP = {
+//   intumescentStrips: true,
+//   coldSmokeSeals: true,
+//   fireLockedSign: true,
+//   fireShutSign: true,
+//   pyroGlazing: true,
+// };
+
+// const ACTION_MENU_FLAG = {
+//   head: false,
+//   hinge: false,
+//   closing: false,
+//   threshold: false,
+//   intumescentStrips: false,
+//   coldSmokeSeals: false,
+//   selfClosingDevice: false,
+//   fireLockedSign: false,
+//   fireShutSign: false,
+//   pyroGlazing: false,
+// };
+// const ACTION_MENU_IMAGES = {
+//   head: [],
+//   hinge: [],
+//   closing: [],
+//   threshold: [],
+//   intumescentStrips: [],
+//   coldSmokeSeals: [],
+//   selfClosingDevice: [],
+//   fireLockedSign: [],
+//   fireShutSign: [],
+//   pyroGlazing: [],
+// };
+
+// const ViewSurvey: React.FC<Props> = ({ doorRefNumber }) => {
+//   const userObj = useSelector((state: RootState) => state.user.userObj);
+
+//   const [isLoading, setIsLoading] = useState(false);
+//   const [data, setData] = useState<any>(null);
+//   const [propertyInfo, setPropertyInfo] = useState<any>(null);
+//   const [error, setError] = useState<string | null>(null);
+//   const [toast, setToast] = useState<{ show: boolean; type: string; text: string }>({
+//     show: false,
+//     type: "default",
+//     text: "",
 //   });
 
-//   const [isLoading, setIsLoading] = useState<boolean>(false);
-
 //   useEffect(() => {
-//     if (doorRefNumber) {
-//       loadSurvey();
-//     }
-//   }, []);
+//     const fetchData = async () => {
+//       setIsLoading(true);
+//       try {
+//         const resp = await http.get(GET_DOOR_INSPECTION_DATA + doorRefNumber);
+//         if (!resp.status) throw new Error("Error loading door inspection");
+//         const body = resp.data;
+//         setData(body);
 
-//   const loadSurvey = async () => {
-//     setIsLoading(true);
-//     try {
-//       const response = await fetchInspectionData(doorRefNumber);
-//       if (response) {
-//         setFormData(prev => ({
-//           ...prev,
-//           ...response,
-//         }));
+//         const propResp = await http.get(GET_PROPERTY_INFO_WITH_MASTER + body.propertyInfo.propertyMasterId);
+//         if (!propResp.status) throw new Error("Error loading property info");
+//         setPropertyInfo(propResp.data);
+//       } catch (err: any) {
+//         setError(err.message || "Unknown error");
+//         setToast({ show: true, type: "failure", text: err.message });
+//       } finally {
+//         setIsLoading(false);
 //       }
-//     } catch (error) {
-//       Alert.alert("Error", "Failed to fetch survey data.");
-//     } finally {
-//       setIsLoading(false);
-//     }
-//   };
+//     };
+//     fetchData();
+//   }, [doorRefNumber]);
 
-//   const handleSave = async () => {
-//     if (!formData.buildingName || !formData.doorNumber) {
-//       Alert.alert("Validation", "Building name and door number are required.");
-//       return;
-//     }
+//   if (error) {
+//     return (
+//       <View style={styles.center}>
+//         <Text style={styles.errorTitle}>Something went wrong!</Text>
+//         <Text>{error}</Text>
+//       </View>
+//     );
+//   }
 
-//     setIsLoading(true);
-//     try {
-//       await saveSurveyFormData(formData);
-//       Alert.alert("Success", "Survey saved successfully!");
-//       navigation.goBack();
-//     } catch (error) {
-//       Alert.alert("Error", "Failed to save survey.");
-//     } finally {
-//       setIsLoading(false);
-//     }
-//   };
+//   if (isLoading) return <ActivityIndicator size="large" style={styles.center} />;
+
+//   if (!data || !propertyInfo) {
+//     return (
+//       <View style={styles.center}>
+//         <Text>No data available.</Text>
+//       </View>
+//     );
+//   }
+
+//   const { inspectedDoorDto, physicalMeasurement, complianceChecks } = data;
+//   const building = propertyInfo.propertyMaster.propertyName;
 
 //   return (
-//     <ScrollView style={styles.container}>
-//       <Text style={styles.heading}>View Survey</Text>
-//       {isLoading && <ActivityIndicator size="large" color="#0000ff" />}
-
-//       <Text style={styles.label}>Building Name</Text>
-//       <TextInput
-//         value={formData.buildingName}
-//         onChangeText={text => setFormData({ ...formData, buildingName: text })}
-//         style={styles.input}
+//     <ScrollView contentContainerStyle={{ padding: 20 }}>
+//       <Toaster
+//         show={toast.show}
+//         toastType={toast.type as any}
+//         title={toast.text}
+//         theme="dark"
+//         position="top-center"
+//         closeButton={() => setToast({ show: false, type: "", text: "" })}
 //       />
 
-//       <Text style={styles.label}>Door Number</Text>
-//       <TextInput
-//         value={formData.doorNumber}
-//         onChangeText={text => setFormData({ ...formData, doorNumber: text })}
-//         style={styles.input}
-//       />
+//       <Text style={styles.header}>Property: {building}</Text>
+//       <Text style={styles.subheader}>Door Ref: {doorRefNumber}</Text>
 
-//       <Text style={styles.label}>Fire Resistance</Text>
-//       <TextInput
-//         value={formData.fireResistance}
-//         onChangeText={text => setFormData({ ...formData, fireResistance: text })}
-//         style={styles.input}
-//       />
+//       <Text style={styles.sectionTitle}>Physical Measurements</Text>
+//       {["head", "hinge", "closing", "threshold"].map((field) => (
+//         <View key={field} style={styles.row}>
+//           <Text style={styles.key}>{field}</Text>
+//           <Text style={styles.value}>{physicalMeasurement[field]?.value ?? "-"}</Text>
+//         </View>
+//       ))}
 
-//       <Text style={styles.label}>Door Thickness (mm)</Text>
-//       <TextInput
-//         value={formData.doorThickness?.toString() || ""}
-//         keyboardType="numeric"
-//         onChangeText={text => setFormData({ ...formData, doorThickness: parseFloat(text) })}
-//         style={styles.input}
-//       />
+//       <Text style={styles.sectionTitle}>Compliance Checks</Text>
+//      {complianceChecks.map((chk: any, idx: number) => (
+//   <View key={idx} style={styles.row}>
+//     <Text style={styles.key}>{chk.name || chk.complianceCheckMasterID}</Text>
+//     <Text style={styles.value}>{chk.isCompliant ? "Compliant" : "Non-compliant"}</Text>
+//   </View>
+// ))}
 
-//       <Text style={styles.label}>Has Certification Visible</Text>
-//       <View style={styles.switchRow}>
-//         <Text>No</Text>
-//         <Switch
-//           value={true}
-//           onValueChange={() => {}}
-//         />
-//         <Text>Yes</Text>
+
+//       <Text style={styles.sectionTitle}>Door Photos</Text>
+//      {inspectedDoorDto.doorPhoto &&
+//   Object.entries(inspectedDoorDto.doorPhoto).map(([key, uri]) => (
+//     <Image key={key} source={{ uri: uri as string }} style={styles.image} />
+//   ))}
+
+//       <View style={styles.buttonContainer}>
+//         <Button title="Back" onPress={() => {/* navigation logic here */}} />
 //       </View>
-
-//       {/* Add other fields as needed */}
-
-//       <Button title="Save Survey" onPress={handleSave} />
 //     </ScrollView>
 //   );
 // };
 
 // const styles = StyleSheet.create({
-//   container: { padding: 20, backgroundColor: "#fff" },
-//   heading: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
-//   label: { marginTop: 10, fontSize: 16 },
-//   input: {
-//     borderWidth: 1,
-//     borderColor: "#ccc",
-//     padding: 10,
-//     borderRadius: 4,
-//     marginTop: 5,
-//   },
-//   switchRow: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     gap: 10,
-//     marginVertical: 10,
-//   },
+//   center: { flex: 1, justifyContent: "center", alignItems: "center" },
+//   errorTitle: { fontSize: 18, color: "red", marginBottom: 10 },
+//   header: { fontSize: 22, fontWeight: "bold", marginBottom: 5 },
+//   subheader: { fontSize: 18, marginBottom: 20 },
+//   sectionTitle: { fontSize: 20, marginTop: 20, marginBottom: 10 },
+//   row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 5 },
+//   key: { fontWeight: "600" },
+//   value: {},
+//   image: { width: "100%", height: 200, marginBottom: 10 },
+//   buttonContainer: { marginTop: 20 },
 // });
 
 // export default ViewSurvey;
-/* TypeScript conversion of ViewSurvey.js */
+import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
+import "../styles/FormComponents.css";
+import FormComponent from './FormComponent'; // Adjust path if needed
+// ==== INTERFACES ====
 
-import { useNavigation } from "@react-navigation/native";
-import React, { useRef, useState } from "react";
-import { useSelector } from "react-redux";
-import Loader from "../components/common/Loader";
-import Toaster from "../components/common/Toaster";
-
-// import Header from "./Header";
-// import Sidebar from "./Sidebar";
-// import Footer from "./Footer";
-// import Capture from "./Capture";
-
-
-// Define necessary types
-interface RootState {
-  user: {
-    userObj: {
-      userId: string;
-      userName: string;
-      token: string;
-    };
-  };
+interface BasicFormData {
+  buildingName: string;
+  uniqueRef: string;
+  date: string;
+  location: string;
+  floor: number;
+  floorPlan: string[];
+  comment: string;
 }
 
-interface Params {
+interface FormData {
+  doorNumber: string;
+  doorType: string;
+  doorOther: string;
+  head: number;
+  hingeLocation: string;
+  hinge: number;
+  closing: number;
+  threshold: number;
+  doorThickness: number;
+  frameDepth: number;
+  doorSize: number;
+  fullDoorsetSize: number;
+  doorPhotos: string[];
+}
+
+interface ComplianceCheck {
+  intumescentStrips: boolean;
+  coldSmokeSeals: boolean;
+  selfClosingDevice: boolean;
+  fireLockedSign: boolean;
+  fireShutSign: boolean;
+  holdOpenDevice: boolean;
+  visibleCertification: boolean;
+  doorGlazing: boolean;
+  pyroGlazing: boolean;
+}
+
+interface ActionMenuFlag {
+  [key: string]: boolean;
+}
+
+interface ActionImages {
+  [key: string]: string[];
+}
+
+interface ViewSurveyProps {
   doorRefNumber: string;
 }
 
-// Initial constants (same as your existing JS)
-const COMPLIANCE_CHECK_MASTER = { /* same as original */ };
-const COMPLIANCE_CHECK = { /* same as original */ };
-const FORM_DATA = { /* same as original */ };
-const BASE_MEASURES = { head: 3, hinge: 3, closing: 3, threshold: 3 };
-const BASE_MEASURES_COMP = { intumescentStrips: true, coldSmokeSeals: true, fireLockedSign: true, fireShutSign: true, pyroGlazing: true };
-const ACTION_MENU_FLAG = { head: false, hinge: false, closing: false, threshold: false, intumescentStrips: false, coldSmokeSeals: false, selfClosingDevice: false, fireLockedSign: false, fireShutSign: false, pyroGlazing: false };
-const ACTION_MENU_IMAGES = { head: [], hinge: [], closing: [], threshold: [], intumescentStrips: [], coldSmokeSeals: [], selfClosingDevice: [], fireLockedSign: [], fireShutSign: [], pyroGlazing: [] };
+// ==== VIEW SURVEY COMPONENT ====
 
-const ViewSurvey: React.FC = () => {
-  const navigate = useNavigation();
-  const { doorRefNumber } = useParams<Params>();
-  const currentURL = window.location.href;
-
-  const [isView, setIsView] = useState<boolean>(false);
-  const [propertyId, setPropertyId] = useState<string>("");
-  const [qrCode, setQrCode] = useState<string>("");
-  const [doorOtherFlag, setDoorOtherFlag] = useState<boolean>(false);
-  const [isColdSeals, setIsColdSeals] = useState<boolean>(false);
-  const [isFireKeepLocked, setFireKeepLocked] = useState<boolean>(false);
-  const [isGlazing, setIsGlazing] = useState<boolean>(true);
-  const [showModal, setShowModal] = useState<boolean>(false);
-  const [hideSidebar, setHideSidebar] = useState<boolean>(false);
-  const [complianceCheck, setComplianceCheck] = useState<any>(COMPLIANCE_CHECK);
-  const [validationFlag, setValidationFlag] = useState<boolean>(false);
-  const [actionmenuFlag, setActionMenuFlag] = useState<any>([]);
-  const [actionImages, setActionImages] = useState<any>(ACTION_MENU_IMAGES);
-  const [error, setError] = useState<any>(null);
-  const [toastData, setToastData] = useState<any>({ toastShow: false, toastType: "", toastString: "" });
-  const [doorTypesOption, setDoorTypesOption] = useState<any[]>([]);
-  const [showLoader, setShowLoader] = useState<boolean>(false);
-  const [isLoading, setIsloading] = useState<boolean>(false);
-  const [ShowScanQRCode, setShowScanQRCode] = useState<boolean>(false);
-  const [resetCaptureFlag, setResetCaptureFlag] = useState<boolean>(false);
-  const [floorPlanImages, setFloorPlanImages] = useState<string[]>([]);
-  const [formData, setFormData] = useState<any>(FORM_DATA);
-  const [basicFormData, setBasicFormData] = useState<any>({
-    propertyMasterId: "",
-    buildingName: "",
-    uniqueRef: "",
-    date: new Date().toISOString().split("T")[0],
-    location: "",
-    floor: null,
-    comment: "",
+const ViewSurvey: React.FC<ViewSurveyProps> = ({ doorRefNumber }) => {
+  const [basicFormData, setBasicFormData] = useState<BasicFormData>({
+    buildingName: '',
+    uniqueRef: '',
+    date: '',
+    location: '',
+    floor: 0,
     floorPlan: [],
+    comment: '',
   });
-  const mandatoryFieldRef = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>>({});
-  const { userObj } = useSelector((state: RootState) => state.user);
 
-  // -- PLACE ALL YOUR EXISTING LOGIC (fetchInspectionDoorData, handleValidationOnSave, etc.) HERE, UNCHANGED EXCEPT FOR TYPES --
-  // -- For large functions like `fetchInspectionDoorData`, move them into their own `useEffect` hooks or modular files as needed --
+  const [formData, setFormData] = useState<FormData>({
+    doorNumber: '',
+    doorType: '',
+    doorOther: '',
+    head: 0,
+    hingeLocation: '',
+    hinge: 0,
+    closing: 0,
+    threshold: 0,
+    doorThickness: 0,
+    frameDepth: 0,
+    doorSize: 0,
+    fullDoorsetSize: 0,
+    doorPhotos: [],
+  });
 
-  if (error) {
-    return (
-      <div className="inCenterDiv">
-        <i className="bi bi-exclamation-triangle red"></i>
-        <h3>Something went wrong!</h3>
-        <p>
-          The link you clicked may be broken or it was an invalid QR code.
-          Please check the source or try again.
-        </p>
-        <p>{error?.message}</p>
-        <div className="col-sm-12 mb-4 text-center">
-          {/* <Link to="/">Go back to Login</Link> */}
-        </div>
-      </div>
-    );
-  }
+  const [complianceCheck, setComplianceCheck] = useState<ComplianceCheck>({
+    intumescentStrips: false,
+    coldSmokeSeals: false,
+    selfClosingDevice: false,
+    fireLockedSign: false,
+    fireShutSign: false,
+    holdOpenDevice: false,
+    visibleCertification: false,
+    doorGlazing: false,
+    pyroGlazing: false,
+  });
+
+  const [actionmenuFlag, setActionMenuFlag] = useState<ActionMenuFlag>({});
+  const [actionImages, setActionImages] = useState<ActionImages>({});
+  const [floorPlanImages, setFloorPlanImages] = useState<string[]>([]);
+  const [isView, setIsView] = useState(true);
+  const [ShowScanQRCode, setShowScanQRCode] = useState(false);
+  const [resetCaptureFlag, setResetCaptureFlag] = useState(false);
+  const [isColdSeals, setIsColdSeals] = useState(true);
+  const [isGlazing, setIsGlazing] = useState(true);
+  const [isFireKeepLocked, setIsFireKeepLocked] = useState(true);
+  const [doorOtherFlag, setDoorOtherFlag] = useState(false);
+  const [validationFlag, setValidationFlag] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [doorTypesOption] = useState([
+    { doorTypeId: 1, doorTypeName: 'Wood' },
+    { doorTypeId: 2, doorTypeName: 'Metal' },
+    { doorTypeId: 99, doorTypeName: 'Other' },
+  ]);
+
+  const mandatoryFieldRef = useRef<Record<string, HTMLInputElement | null>>({});
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const response: any = await fetchSurveyDataByRef(doorRefNumber);
+      if (response) {
+        setBasicFormData(response.basicInfo);
+        setFormData(response.doorData);
+        setComplianceCheck(response.compliance);
+        setActionMenuFlag(response.actionMenuFlags);
+        setActionImages(response.images);
+        setFloorPlanImages(response.floorPlanImages);
+      }
+    };
+
+    fetchData();
+  }, [doorRefNumber]);
+
+  // Dummy fetch (replace with your real API call)
+  const fetchSurveyDataByRef = async (ref: string) => {
+    return {
+      basicInfo: {
+        buildingName: 'Sample Building',
+        uniqueRef: 'SB-001',
+        date: '2025-07-29',
+        location: 'Level 3',
+        floor: 3,
+        floorPlan: ['floor1.jpg'],
+        comment: 'Fire door checked.',
+      },
+      doorData: {
+        doorNumber: 'D101',
+        doorType: '1',
+        doorOther: '',
+        head: 3,
+        hingeLocation: '1',
+        hinge: 2,
+        closing: 2,
+        threshold: 1,
+        doorThickness: 44,
+        frameDepth: 110,
+        doorSize: 2040,
+        fullDoorsetSize: 2100,
+        doorPhotos: ['door.jpg'],
+      },
+      compliance: {
+        intumescentStrips: true,
+        coldSmokeSeals: true,
+        selfClosingDevice: false,
+        fireLockedSign: true,
+        fireShutSign: false,
+        holdOpenDevice: false,
+        visibleCertification: true,
+        doorGlazing: true,
+        pyroGlazing: true,
+      },
+      actionMenuFlags: {},
+      images: {},
+      floorPlanImages: ['additional1.jpg'],
+    };
+  };
+
+  // Handlers
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setBasicFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFormDataChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleGapsChange = handleFormDataChange;
+
+  const handleComplianceToggle = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setComplianceCheck((prev) => ({ ...prev, [name]: checked }));
+  };
+
+  const handleImagesChange = (images: string[], field: string) => {
+    console.log('images changed for', field, images);
+  };
+
+  const handleImagesChangeMini = handleImagesChange;
+
+  const handleDeleteImages = (index: number, field: string) => {
+    console.log(`delete image at ${index} for ${field}`);
+  };
+
+  const handleResetAction = (field: string, type: string) => {
+    console.log('reset', field, type);
+  };
+
+  const handleActionFieldsChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    field: string,
+    type: string
+  ) => {
+    console.log('action field changed', field, type, e.target.value);
+  };
+
+  const generateQRCode = () => {
+    console.log('QR Code generated');
+  };
+
+  const handleCancel = () => {
+    console.log('Form canceled');
+  };
+
+  const handleValidationOnSave = (status: string) => {
+    console.log('Save with status:', status);
+  };
 
   return (
-      <>
-      {/* <Header hideSidebar={hideSidebar} setHideSidebar={setHideSidebar} /> */}
-      {userObj && (
-        <div className="dashboard_body_main d-flex vh-100">
-          <Toaster
-            show={toastData.toastShow}
-            toastType={toastData.toastType}
-            title={toastData.toastString}
-            theme="dark"
-            position="top-center"
-            closeButton={() => setToastData({ toastShow: false, toastType: "", toastString: "" })}
-          />
-          <Loader active={isLoading} />
-          {/* {hideSidebar && <Sidebar />} */}
-          {showModal && (
-            <div className="modal-overlay">
-              <div className="modal-content">
-                <span className="close" onClick={() => setShowModal(false)}>
-                  &times;
-                </span>
-                <h6 className="modal-header">
-                  QR Code
-                </h6>
-                <div className="modal-body">
-                  {showLoader ? (
-                    <div className="approvalLoader" style={{ marginLeft: "45%" }}></div>
-                  ) : (
-                    qrCode && (
-                      <img
-                        src={qrCode}
-                        alt="QR Code"
-                        style={{ height: "80%", width: "50%" }}
-                      />
-                    )
-                  )}
-                  {!showLoader && (
-                    <div style={{ marginTop: "20px" }}>
-                      <button
-                        className="btn btn-primary"
-                        style={{ minHeight: "20px" }}
-                        onClick={() => {
-                          const printWindow = window.open("", "_blank");
-                          if (printWindow) {
-                            printWindow.document.write(`
-                              <html>
-                                <head>
-                                  <style>
-                                    body { font-family: Arial, sans-serif; }
-                                    .print-container { text-align: center; }
-                                    .modal-header { background-color: gray; color: white; padding: 10px; }
-                                  </style>
-                                </head>
-                                <body>
-                                  <div class="print-container" style="margin-top:100px">
-                                    <img src="${qrCode}" alt="QR Code" height='400px' width='400px' />
-                                    <h3>QR Code</h3>
-                                  </div>
-                                </body>
-                              </html>
-                            `);
-                            printWindow.document.close();
-                            printWindow.print();
-                            printWindow.close();
-                          }
-                        }}
-                      >
-                        Print
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="d-flex dashboard_body flex-column py-3 " style={{ width: "100%" }}>
-            <form className="row m-0">
-              <div className="col-sm-12 mb-3">
-                <div className="card">
-                  <div className="card-body action_btns d-flex justify-content-end gap-3 flex-wrap flex-sm-nowrap">
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      // onClick={() => navigate("/property-view-details/" + propertyId)}
-                    >
-                      Back
-                    </button>
-                    {!isView && (
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={isLoading}
-                        onClick={() => alert("Save logic to be added")}
-                      >
-                        Save & Proceed
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </form>
-            {/* <Footer /> */}
-          </div>
-        </div>
-      )}
-    </>
-    
+    <FormComponent
+      isView={isView}
+      basicFormData={basicFormData}
+      formData={formData}
+      complianceCheck={complianceCheck}
+      actionmenuFlag={actionmenuFlag}
+      actionImages={actionImages}
+      floorPlanImages={floorPlanImages}
+      resetCaptureFlag={resetCaptureFlag}
+      isColdSeals={isColdSeals}
+      isGlazing={isGlazing}
+      isFireKeepLocked={isFireKeepLocked}
+      ShowScanQRCode={ShowScanQRCode}
+      doorOtherFlag={doorOtherFlag}
+      doorTypesOption={doorTypesOption}
+      validationFlag={validationFlag}
+      isLoading={isLoading}
+      mandatoryFieldRef={mandatoryFieldRef}
+      handleChange={handleChange}
+      handleFormDataChange={handleFormDataChange}
+      handleGapsChange={handleGapsChange}
+      handleComplianceToggle={handleComplianceToggle}
+      handleImagesChange={handleImagesChange}
+      handleImagesChangeMini={handleImagesChangeMini}
+      handleDeleteImages={handleDeleteImages}
+      handleResetAction={handleResetAction}
+      handleActionFieldsChange={handleActionFieldsChange}
+      generateQRCode={generateQRCode}
+      setShowScanQRCode={setShowScanQRCode}
+      handleCancel={handleCancel}
+      handleValidationOnSave={handleValidationOnSave}
+    />
   );
 };
 
 export default ViewSurvey;
-function useParams<T>(): { doorRefNumber: any; } {
-  throw new Error("Function not implemented.");
-}
-

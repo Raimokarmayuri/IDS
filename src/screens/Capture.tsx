@@ -180,7 +180,7 @@ const Capture: React.FC<CaptureProps> = ({
                       : ImageProxyBaseUrl + encodeURIComponent(img)
                   }
                   alt={`Captured ${index + 1}`}
-                  style={{ width: "100%", height: "auto", display: "block" }}
+                  style={{ width: "100%", height: "auto", display: "block", backgroundColor: '#ffffffff'  }}
                 />
                 
                 <i

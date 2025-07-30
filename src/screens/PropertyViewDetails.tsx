@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSelector } from "react-redux";
@@ -22,6 +23,9 @@ import {
 } from "../api/apiPath";
 import http from "../api/server";
 import { Statuses, UserRoles } from "../components/common/constants";
+import DataGridTable from "../components/common/DataGridTable"; // adjust path if needed
+import Footer from "../components/common/Footer";
+
 
 const PropertyDetailsScreen = () => {
   const route = useRoute();
@@ -209,80 +213,23 @@ const PropertyDetailsScreen = () => {
   <Text style={styles.cardTitle}>Door Surveys</Text>
 
   {complianceData?.doorComplianceDetails?.length > 0 ? (
-    <>
-      {/* Paginated Door Survey Table */}
-      <ScrollView horizontal>
-        <View>
-          <View style={styles.tableHeader}>
-            <Text style={styles.tableHeaderCell}>Door Ref</Text>
-            <Text style={styles.tableHeaderCell}>Type</Text>
-            <Text style={styles.tableHeaderCell}>Fire Rating</Text>
-            <Text style={styles.tableHeaderCell}>Compliant</Text>
-            <Text style={styles.tableHeaderCell}>Comments</Text>
-            <Text style={styles.tableHeaderCell}>View</Text>
-            <Text style={styles.tableHeaderCell}>Edit</Text>
-          </View>
-
-          {complianceData.doorComplianceDetails
-            .sort(
-              (a: any, b: any) =>
-                new Date(b.doorInspectionDate).getTime() -
-                new Date(a.doorInspectionDate).getTime()
-            )
-            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-            .map((item: any, index: number) => (
-              <View key={index} style={styles.tableRow}>
-               <Text style={styles.tableCell}>{item.doorRefNumber}</Text>
-                <Text style={styles.tableCell}>{item.doorType}</Text>
-                <Text style={styles.tableCell}>
-                  {item.fireRating || "-"}
-                </Text>
-                <Text
-                  style={[
-                    styles.tableCell,
-                    {
-                      color:
-                        item.isCompliant === "Compliant" ? "green" : "orange",
-                    },
-                  ]}
-                >
-                  {item.isCompliant}
-                </Text>
-                <Text style={styles.tableCell}>
-                  {item.comments?.length > 20
-                    ? item.comments.slice(0, 20) + "..."
-                    : item.comments || "-"}
-                </Text>
-                <Text style={styles.iconCell} onPress={"ViewSurvey" as never}>👁️</Text>
-                <Text style={styles.iconCell}>✏️</Text>
-              </View>
-            ))}
-        </View>
-      </ScrollView>
-
-      {/* Pagination Controls */}
-      <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 10 }}>
-        <Button
-          title="Previous"
-          onPress={() => setCurrentPage((prev) => prev - 1)}
-          disabled={currentPage === 1}
-        />
-        <Text style={{ marginHorizontal: 20, alignSelf: "center" }}>
-          Page {currentPage} of {Math.ceil(complianceData.doorComplianceDetails.length / itemsPerPage)}
-        </Text>
-        <Button
-          title="Next"
-          onPress={() => setCurrentPage((prev) => prev + 1)}
-          disabled={
-            currentPage === Math.ceil(complianceData.doorComplianceDetails.length / itemsPerPage)
-          }
-        />
-      </View>
-    </>
+    <DataGridTable
+      tableData={complianceData.doorComplianceDetails.map((item: any) => ({
+        doorRefNumber: item.doorRefNumber,
+        doorType: item.doorType,
+        fireRating: item.fireRating || "-",
+        compliance: item.isCompliant,
+        comments: item.comments,
+      }))}
+      userRole={userRole}
+      inspectorInspectionStatus={inspectorInspectionStatus}
+      propertyInfo={propertyInfo}
+    />
   ) : (
     <Text style={{ marginTop: 10 }}>No door survey data available.</Text>
   )}
 </View>
+
 
 
       {/* {userRole === UserRoles.INSPECTOR &&
@@ -295,12 +242,42 @@ const PropertyDetailsScreen = () => {
           <Button title="Download Report" onPress={handleDownload} />
         )}
 
-      <View style={{ marginTop: 20 }}>
+ <TouchableOpacity
+   onPress={() => navigation.goBack()}
+        style={[
+          styles.button,
+          {
+            backgroundColor: "#ffffff", // white background
+            marginTop: 30,
+            marginBottom: 20,
+            paddingVertical: 14,
+            borderRadius: 8,
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+            elevation: 2,
+            borderWidth: 1, // black border
+            borderColor: "#000000",
+          },
+        ]}
+        // onPress={handleSubmit}
+      >
+        <Text style={{ color: "#000000", fontSize: 16, fontWeight: "600" }}>
+           Back
+        </Text>
+      </TouchableOpacity>
+      
+      {/* <View style={{ marginTop: 20 }}>
         <Button
           title="Back"
           onPress={() => navigation.goBack()}
         />
-      </View>
+      </View> */}
+
+      <Footer />
     </ScrollView>
   );
 };

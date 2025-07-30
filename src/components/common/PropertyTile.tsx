@@ -4,11 +4,10 @@ import {
   Ionicons,
   MaterialIcons,
 } from "@expo/vector-icons";
-import axios from "axios";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSelector } from "react-redux";
-import { Statuses, UserRoles } from "./constants";
+import { Statuses } from "./constants";
 
 interface PropertyTileProps {
   data: any;
@@ -42,62 +41,62 @@ const PropertyTile: React.FC<PropertyTileProps> = ({
     totalAttention,
   } = data;
 
-  useEffect(() => {
-    if (!userObj) return;
+  // useEffect(() => {
+  //   if (!userObj) return;
 
-    const checkSurveyPermissions = async () => {
-      try {
-        const response = await axios.get(
-          `http://your-ip/api/property-user-mapping/${propertyMasterId}`
-        );
-        const mapping = response.data.find(
-          (d: any) => d.userId === userObj.userId
-        );
-        const inspectorStatus = mapping?.status;
+  //   const checkSurveyPermissions = async () => {
+  //     try {
+  //       const response = await axios.get(
+  //         `http://your-ip/api/property-user-mapping/${propertyMasterId}`
+  //       );
+  //       const mapping = response.data.find(
+  //         (d: any) => d.userId === userObj.userId
+  //       );
+  //       const inspectorStatus = mapping?.status;
 
-        const now = new Date();
-        const nextDate = new Date(nextInspectionDueDate);
+  //       const now = new Date();
+  //       const nextDate = new Date(nextInspectionDueDate);
 
-        const canStartSurvey =
-          ((status !== Statuses.COMPLETED && status !== Statuses.REJECTED) ||
-            inspectorStatus !== Statuses.COMPLETED ||
-            nextDate <= now) &&
-          userRole === UserRoles.INSPECTOR;
+  //       const canStartSurvey =
+  //         ((status !== Statuses.COMPLETED && status !== Statuses.REJECTED) ||
+  //           inspectorStatus !== Statuses.COMPLETED ||
+  //           nextDate <= now) &&
+  //         userRole === UserRoles.INSPECTOR;
 
-        setShowNewSurveyIcon(canStartSurvey);
+  //       setShowNewSurveyIcon(canStartSurvey);
 
-        if (
-          status === Statuses.COMPLETED &&
-          (userRole === UserRoles.ADMIN || userRole === UserRoles.APPROVER)
-        ) {
-          setShowDownloadIcon(true);
-        }
-      } catch (error) {
-        console.error("Error checking permissions", error);
-      }
-    };
+  //       if (
+  //         status === Statuses.COMPLETED &&
+  //         (userRole === UserRoles.ADMIN || userRole === UserRoles.APPROVER)
+  //       ) {
+  //         setShowDownloadIcon(true);
+  //       }
+  //     } catch (error) {
+  //       console.error("Error checking permissions", error);
+  //     }
+  //   };
 
-    checkSurveyPermissions();
-  }, [userObj]);
+  //   checkSurveyPermissions();
+  // }, [userObj]);
 
-  const handleDownloadClick = async () => {
-    try {
-      setShowLoader(true);
-      const response = await axios.get("http://your-ip/api/door-inspection", {
-        params: { propertyId: propertyMasterId },
-        responseType: "blob",
-      });
+  // const handleDownloadClick = async () => {
+  //   try {
+  //     setShowLoader(true);
+  //     const response = await axios.get("http://your-ip/api/door-inspection", {
+  //       params: { propertyId: propertyMasterId },
+  //       responseType: "blob",
+  //     });
 
-      const file = new Blob([response.data], { type: "application/pdf" });
-      const fileURL = URL.createObjectURL(file);
-      setPdfUrl(fileURL);
-      setShowPdfModal(true);
-    } catch (error) {
-      console.error("Download failed", error);
-    } finally {
-      setShowLoader(false);
-    }
-  };
+  //     const file = new Blob([response.data], { type: "application/pdf" });
+  //     const fileURL = URL.createObjectURL(file);
+  //     setPdfUrl(fileURL);
+  //     setShowPdfModal(true);
+  //   } catch (error) {
+  //     console.error("Download failed", error);
+  //   } finally {
+  //     setShowLoader(false);
+  //   }
+  // };
 
   const formatDate = (dateStr: string): string => {
     return new Date(dateStr).toLocaleDateString();
@@ -152,6 +151,9 @@ const PropertyTile: React.FC<PropertyTileProps> = ({
   };
 
   return (
+    <View style={styles.cardWithLine}>
+  <View style={styles.line} />
+  <View style={styles.cardContent}>
     <View style={styles.card}>
       <View style={styles.row}>
         {/* Left block with icon and info */}
@@ -234,10 +236,37 @@ const PropertyTile: React.FC<PropertyTileProps> = ({
         </View>
       </View>
     </View>
+    </View>
+    
+</View>
+
   );
 };
 
 const styles = StyleSheet.create({
+  cardWithLine: {
+  flexDirection: "row",
+  backgroundColor: "#fff",
+  borderRadius: 10,
+  margin: 10,
+  elevation: 3,
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.2,
+  shadowRadius: 1.5,
+  overflow: "hidden",
+},
+
+line: {
+  width: 6,                    // line width
+  backgroundColor: "#4d0334ff", // change to your desired color
+},
+
+cardContent: {
+  flex: 1,
+  padding: 15,
+},
+
   card: {
     padding: 15,
     margin: 10,
