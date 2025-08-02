@@ -1,3 +1,5 @@
+import { DOOR_INSPECTION_API } from "@/src/api/apiPath";
+import http from "@/src/api/server";
 import {
   Entypo,
   FontAwesome5,
@@ -5,6 +7,7 @@ import {
   MaterialIcons,
 } from "@expo/vector-icons";
 import React, { useState } from "react";
+import { isMobile } from "react-device-detect";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSelector } from "react-redux";
 import { Statuses } from "./constants";
@@ -29,6 +32,36 @@ const PropertyTile: React.FC<PropertyTileProps> = ({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const { userObj } = useSelector((state: any) => state.user);
+
+  const handleDownloadClick = async (propertyId: string | number) => {
+    setShowLoader(true);
+    try {
+      const response = await http.get(DOOR_INSPECTION_API, {
+        params: { propertyId },
+        responseType: "blob",
+      });
+
+      const file = new Blob([response.data], { type: "application/pdf" });
+      const fileURL = URL.createObjectURL(file);
+
+      setPdfUrl(fileURL);
+
+      if (isMobile) {
+        const link = document.createElement("a");
+        link.href = fileURL;
+        link.download = `${propertyId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        setShowPdfModal(true);
+      }
+    } catch (error) {
+      console.error("Download Failed", error);
+    } finally {
+      setShowLoader(false);
+    }
+  };
 
   const {
     propertyMasterId,
@@ -122,6 +155,8 @@ const PropertyTile: React.FC<PropertyTileProps> = ({
     switch (status) {
       case "In Review":
         return "50%";
+        case "In Progress":
+        return "50%";
       case "Submitted for Approval":
         return "75%";
       case "Completed":
@@ -152,120 +187,132 @@ const PropertyTile: React.FC<PropertyTileProps> = ({
 
   return (
     <View style={styles.cardWithLine}>
-  <View style={styles.line} />
-  <View style={styles.cardContent}>
-    <View style={styles.card}>
-      <View style={styles.row}>
-        {/* Left block with icon and info */}
-        <View style={styles.columnLeft}>
-          <View style={styles.centerIconColumn}>
-            <FontAwesome5 name="building" size={32} color="#333" />
-          </View>
-          <View style={styles.infoContainer}>
-            <Text style={styles.title}>{propertyName}</Text>
-            <Text style={styles.info}>
-              <Entypo name="location-pin" size={14} /> {propertyLocation}
-            </Text>
-            <Text style={styles.info}>
-              <Ionicons name="person-circle" size={14} /> {inspectedBy}
-            </Text>
-            <Text style={styles.info}>
-              <MaterialIcons name="calendar-today" size={14} />{" "}
-              {formatDate(lastInspectionDate)}
-            </Text>
+      <View style={styles.line} />
+      <View style={styles.cardContent}>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            {/* Left block with icon and info */}
+            <View style={styles.columnLeft}>
+              <View style={styles.centerIconColumn}>
+                <FontAwesome5 name="building" size={32} color="#333" />
+              </View>
+              <View style={styles.infoContainer}>
+                <Text style={styles.title}>{propertyName}</Text>
+                <Text style={styles.info}>
+                  <Entypo name="location-pin" size={14} /> {propertyLocation}
+                </Text>
+                <Text style={styles.info}>
+                  <Ionicons name="person-circle" size={14} /> {inspectedBy}
+                </Text>
+                <Text style={styles.info}>
+                  <MaterialIcons name="calendar-today" size={14} />{" "}
+                  {formatDate(lastInspectionDate)}
+                </Text>
 
-            {/* Status bar row */}
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, getStatusStyle(status)]} />
-              <Text style={styles.statusLabel}>{status}</Text>
+                {/* Status bar row */}
+                <View style={styles.statusRow}>
+                  <View style={[styles.statusDot, getStatusStyle(status)]} />
+                  <Text style={styles.statusLabel}>{status}</Text>
+                </View>
+
+                {[
+                  // "In Review",
+                  "In Progress",
+                  "Completed",
+                  "Pending Approval",
+                  "Rejected",
+                  "Submitted for Approval",
+                ].includes(status) && (
+                  <View className="col-12 col-sm-8 col-lg-4 col-lg-4-padding col-sm-8-padding">
+                    <View className="d-flex mb-2 align-items-center justify-content-between "></View>
+
+                    <View style={styles.progressBar}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            width: getStatusProgressWidth(status),
+                            backgroundColor:
+                              status === "Completed"
+                                ? "green"
+                                // : status === "In Review"
+                                // ? "#f0ad4e" // orange
+                                 : status === "In Progress"
+                                ? "#f0ad4e" // orange
+                                : status === "Submitted for Approval"
+                                ? "#007bff" // blue
+                                : status === "Rejected"
+                                ? "red"
+                                : "#6c757d", // gray
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                )}
+
+                {/* <View style={[styles.statusBarLine, getStatusStyle(status)]} /> */}
+              </View>
             </View>
 
-            {[
-              "In Review",
-              "Completed",
-              "Pending Approval",
-              "Rejected",
-              "Submitted for Approval",
-            ].includes(status) && (
-              <View className="col-12 col-sm-8 col-lg-4 col-lg-4-padding col-sm-8-padding">
-                <View className="d-flex mb-2 align-items-center justify-content-between "></View>
+            {/* Right block with action buttons */}
+            <View style={styles.columnRight}>
+              <Text style={styles.issuesText}>
+                <MaterialIcons name="warning" size={14} color="red" />{" "}
+                {totalAttention} Issue Found
+              </Text>
+              <View style={styles.iconRow}>
+                <TouchableOpacity
+                  onPress={() => onViewProperty(propertyMasterId)}
+                >
+                  <Ionicons name="eye" size={24} color="black" />
+                </TouchableOpacity>
+                {showNewSurveyIcon && (
+                  <TouchableOpacity
+                    onPress={() => onStartSurvey(propertyMasterId)}
+                  >
+                    <Ionicons name="add-circle" size={24} color="blue" />
+                  </TouchableOpacity>
+                )}
 
-                <View style={styles.progressBar}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        width: getStatusProgressWidth(status),
-                        backgroundColor:
-                          status === "Completed"
-                            ? "green"
-                            : status === "In Review"
-                            ? "#f0ad4e" // orange
-                            : status === "Submitted for Approval"
-                            ? "#007bff" // blue
-                            : status === "Rejected"
-                            ? "red"
-                            : "#6c757d", // gray
-                      },
-                    ]}
-                  />
-                </View>
+                {/* <TouchableOpacity
+                  onPress={() => handleDownloadClick(propertyInfo?.propertyId)}
+                >
+                  <Icon name="download" size={20} color="black" />
+              
+                </TouchableOpacity> */}
               </View>
-            )}
-
-            {/* <View style={[styles.statusBarLine, getStatusStyle(status)]} /> */}
-          </View>
-        </View>
-
-        {/* Right block with action buttons */}
-        <View style={styles.columnRight}>
-          <Text style={styles.issuesText}>
-            <MaterialIcons name="warning" size={14} color="red" />{" "}
-            {totalAttention} Issue Found
-          </Text>
-          <View style={styles.iconRow}>
-            <TouchableOpacity onPress={() => onViewProperty(propertyMasterId)}>
-              <Ionicons name="eye" size={24} color="black" />
-            </TouchableOpacity>
-            {showNewSurveyIcon && (
-              <TouchableOpacity onPress={() => onStartSurvey(propertyMasterId)}>
-                <Ionicons name="add-circle" size={24} color="blue" />
-              </TouchableOpacity>
-            )}
+            </View>
           </View>
         </View>
       </View>
     </View>
-    </View>
-    
-</View>
-
   );
 };
 
 const styles = StyleSheet.create({
   cardWithLine: {
-  flexDirection: "row",
-  backgroundColor: "#fff",
-  borderRadius: 10,
-  margin: 10,
-  elevation: 3,
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.2,
-  shadowRadius: 1.5,
-  overflow: "hidden",
-},
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    margin: 10,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    overflow: "hidden",
+  },
 
-line: {
-  width: 6,                    // line width
-  backgroundColor: "#4d0334ff", // change to your desired color
-},
+  line: {
+    width: 6, // line width
+    backgroundColor: "#4d0334ff", // change to your desired color
+  },
 
-cardContent: {
-  flex: 1,
-  padding: 15,
-},
+  cardContent: {
+    flex: 1,
+    padding: 15,
+  },
 
   card: {
     padding: 15,

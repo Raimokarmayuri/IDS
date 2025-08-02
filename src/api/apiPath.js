@@ -25,3 +25,5 @@ export const GET_PROPERTY_COMPLIANCE_SUMMARY =
   "/api/GetInspectionData/GetPropertyComplianceSummary";
 export const GET_DOOR_INSPECTION_DATA = 
   "/api/GetInspectionData/GetFullInspectionByDoorRef?doorRef=";
+  export const GET_FLOORPLAN_IMAGE = 
+  "/api/GetInspectionData/GetFLoorPlanByFloorNo?";

@@ -296,7 +296,9 @@ export const Statuses = {
   INREVIEW: "In Review",
   NOTSTARTED: "Not Started",
   INPROGRESS: "In Progress",
-  REJECTED:"Rejected"
+  REJECTED:"Rejected",
+  SUBMITTEDFORAPPROVAL:"Submitted for Approval"
+
 };
 
 export const URLS = {

@@ -1,12 +1,12 @@
 import { useNavigation } from 'expo-router';
 import React from 'react';
 import {
-    Image,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function OnboardingScreen() {
@@ -106,7 +106,7 @@ image: {
     paddingVertical: 12,
     paddingHorizontal: 100,
     borderRadius: 8,
-
+ marginTop: 2,
   },
   buttonText: {
     color: '#000',

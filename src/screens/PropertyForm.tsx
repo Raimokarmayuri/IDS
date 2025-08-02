@@ -16,6 +16,7 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import { useSelector } from "react-redux";
 import { GET_CLINET_ID_API, PROPERTY_DASHBOARD_API } from "../api/apiPath";
 import http from "../api/server";
+import Footer from "../components/common/Footer";
 import PropertyTile from "../components/common/PropertyTile";
 import { RootState } from "../store/slices/store";
 
@@ -31,9 +32,13 @@ const PropertyForm = () => {
   const navigation = useNavigation<any>();
 
   const getSearchData = (value: string) => {
-    const filteredResults = data?.propertyFields?.filter((item: any) =>
-      item.propertyName.toLowerCase().includes(value.toLowerCase())
-    );
+    const filteredResults = data?.propertyFields?.filter((item: any) => {
+  return (
+    typeof item.propertyName === "string" &&
+    item.propertyName.toLowerCase().includes(value.toLowerCase())
+  );
+});
+
     setPropertyData(filteredResults);
   };
 
@@ -166,8 +171,11 @@ const PropertyForm = () => {
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 60 }}
             scrollEnabled={true}
           />
+           <Footer />
         </ScrollView>
       )}
+
+     
     </SafeAreaView>
   );
 };

@@ -4,13 +4,12 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Button,
   Linking,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useSelector } from "react-redux";
 import {
@@ -22,10 +21,11 @@ import {
   UPDATE_PROPERTY_USER_MAPPING_STATUS,
 } from "../api/apiPath";
 import http from "../api/server";
-import { Statuses, UserRoles } from "../components/common/constants";
 import DataGridTable from "../components/common/DataGridTable"; // adjust path if needed
 import Footer from "../components/common/Footer";
+import { Statuses, UserRoles } from "../components/common/constants";
 
+import Icon from "react-native-vector-icons/FontAwesome"; // or Feather, MaterialIcons, etc.
 
 const PropertyDetailsScreen = () => {
   const route = useRoute();
@@ -132,6 +132,34 @@ const PropertyDetailsScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
+      {/* {(userRole === UserRoles.ADMIN || userRole === UserRoles.APPROVER) &&
+        propertyInfo?.status === Statuses.COMPLETED && (
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: "#ffff",
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 6,
+              marginTop: 10,
+              marginBottom:10,
+            }}
+            onPress={handleDownload}
+          >
+            <Icon
+              name="download"
+              size={20}
+              color="black"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={{ color: "black", fontSize: 16 }}>
+              Download Report
+            </Text>
+          </TouchableOpacity>
+        )} */}
+
       <View style={styles.card}>
         <Text style={styles.headerText}>
           {complianceData?.propertyName || "Property Name"}
@@ -157,6 +185,35 @@ const PropertyDetailsScreen = () => {
         {/* {isCompleted && (
           <Text><Text style={styles.bold}>Approval Date:</Text> {new Date(complianceData?.approvalDate).toLocaleDateString()}</Text>
         )} */}
+
+         {(userRole === UserRoles.ADMIN || userRole === UserRoles.APPROVER) &&
+        propertyInfo?.status === Statuses.COMPLETED && (
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              justifyContent: "flex-end",
+              alignItems: "flex-end",
+              backgroundColor: "#ffffff",
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 6,
+              marginTop: 10,
+              marginBottom:10,
+            }}
+            onPress={handleDownload}
+          >
+            <Icon
+              name="download"
+              size={20}
+              color="black"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={{ color: "black", fontSize: 16 }}>
+              Download Report
+            </Text>
+          </TouchableOpacity>
+        )}
+
       </View>
 
       <View style={styles.card}>
@@ -210,40 +267,35 @@ const PropertyDetailsScreen = () => {
       </View>
 
       <View style={styles.card}>
-  <Text style={styles.cardTitle}>Door Surveys</Text>
+        <Text style={styles.cardTitle}>Door Surveys</Text>
 
-  {complianceData?.doorComplianceDetails?.length > 0 ? (
-    <DataGridTable
-      tableData={complianceData.doorComplianceDetails.map((item: any) => ({
-        doorRefNumber: item.doorRefNumber,
-        doorType: item.doorType,
-        fireRating: item.fireRating || "-",
-        compliance: item.isCompliant,
-        comments: item.comments,
-      }))}
-      userRole={userRole}
-      inspectorInspectionStatus={inspectorInspectionStatus}
-      propertyInfo={propertyInfo}
-    />
-  ) : (
-    <Text style={{ marginTop: 10 }}>No door survey data available.</Text>
-  )}
-</View>
-
-
+        {complianceData?.doorComplianceDetails?.length > 0 ? (
+          <DataGridTable
+            tableData={complianceData.doorComplianceDetails.map(
+              (item: any) => ({
+                doorRefNumber: item.doorRefNumber,
+                doorType: item.doorType,
+                fireRating: item.fireRating || "-",
+                compliance: item.isCompliant,
+                comments: item.comments,
+              })
+            )}
+            userRole={userRole}
+            inspectorInspectionStatus={inspectorInspectionStatus}
+            propertyInfo={propertyInfo}
+          />
+        ) : (
+          <Text style={{ marginTop: 10 }}>No door survey data available.</Text>
+        )}
+      </View>
 
       {/* {userRole === UserRoles.INSPECTOR &&
         inspectorInspectionStatus !== Statuses.COMPLETED && (
           <Button title="Submit for Approval" onPress={submitForApproval} />
         )} */}
 
-      {(userRole === UserRoles.ADMIN || userRole === UserRoles.APPROVER) &&
-        propertyInfo?.status === Statuses.COMPLETED && (
-          <Button title="Download Report" onPress={handleDownload} />
-        )}
-
- <TouchableOpacity
-   onPress={() => navigation.goBack()}
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
         style={[
           styles.button,
           {
@@ -266,10 +318,10 @@ const PropertyDetailsScreen = () => {
         // onPress={handleSubmit}
       >
         <Text style={{ color: "#000000", fontSize: 16, fontWeight: "600" }}>
-           Back
+          Back
         </Text>
       </TouchableOpacity>
-      
+
       {/* <View style={{ marginTop: 20 }}>
         <Button
           title="Back"
@@ -296,6 +348,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+  },
+  button: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
   },
   tableHeader: {
     flexDirection: "row",

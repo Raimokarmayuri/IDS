@@ -175,14 +175,14 @@ const Capture: React.FC<CaptureProps> = ({
               >
                 <img
                   src={
-                    img.startsWith("data:image")
+                    typeof img === "string" && img.startsWith("data:image")
                       ? img
-                      : ImageProxyBaseUrl + encodeURIComponent(img)
+                      : ImageProxyBaseUrl + encodeURIComponent(img || "")
                   }
+                  onError={() => console.log("❌ image failed:", img)}
                   alt={`Captured ${index + 1}`}
-                  style={{ width: "100%", height: "auto", display: "block", backgroundColor: '#ffffffff'  }}
                 />
-                
+
                 <i
                   className="fa-solid fa-xmark"
                   onClick={() => removeImage(index)}
